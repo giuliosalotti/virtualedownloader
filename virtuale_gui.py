@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Virtuale UniBO — Downloader
-Interfaccia grafica moderna per scaricare i materiali di qualsiasi corso.
+Interfaccia grafica per scaricare i materiali di qualsiasi corso.
 
 REQUISITI:
     pip install requests beautifulsoup4
@@ -26,30 +26,30 @@ from bs4 import BeautifulSoup
 
 
 # ─────────────────────────────────────────────────────────────
-#  PALETTE COLORI
+#  PALETTE
 # ─────────────────────────────────────────────────────────────
 
 C = {
-    "bg":            "#F7F6F3",
-    "surface":       "#FFFFFF",
-    "border":        "#E5E3DD",
-    "border_focus":  "#1A1A18",
-    "text":          "#1A1A18",
-    "text_muted":    "#888780",
-    "text_hint":     "#BBBAB5",
-    "accent":        "#1A1A18",
-    "accent_fg":     "#FFFFFF",
-    "green":         "#2D9E6B",
-    "green_light":   "#EAF5F0",
-    "red":           "#D85A30",
-    "amber":         "#BA7517",
-    "blue":          "#185FA5",
-    "blue_light":    "#E6F1FB",
-    "log_bg":        "#FAFAF8",
-    "btn_secondary": "#F0EEE9",
-    "btn_sec_hover": "#E5E3DD",
-    "btn_hover":     "#333330",
-    "disabled":      "#CCCCC8",
+    "bg":           "#F7F6F3",
+    "surface":      "#FFFFFF",
+    "border":       "#E5E3DD",
+    "border_focus": "#1A1A18",
+    "text":         "#1A1A18",
+    "text_muted":   "#888780",
+    "text_hint":    "#BBBAB5",
+    "accent":       "#1A1A18",
+    "accent_fg":    "#FFFFFF",
+    "green":        "#2D9E6B",
+    "red":          "#D85A30",
+    "amber":        "#BA7517",
+    "blue":         "#185FA5",
+    "blue_light":   "#E6F1FB",
+    "log_bg":       "#FAFAF8",
+    "btn_sec":      "#F0EEE9",
+    "btn_sec_h":    "#E5E3DD",
+    "btn_hover":    "#333330",
+    "disabled_bg":  "#DDDBD6",
+    "disabled_fg":  "#AAAAAA",
 }
 
 
@@ -108,7 +108,7 @@ def parse_course(session, course_url):
     for i, sec in enumerate(sections_els):
         title_el = sec.find("h3") or sec.find("h2") or sec.find(class_="sectionname")
         raw_title = title_el.get_text(strip=True) if title_el else f"Sezione {i}"
-        title = f"{i:02d} – {raw_title}"
+        title = f"{i:02d} - {raw_title}"
         items = []
         for act in sec.find_all("li", class_=lambda c: c and "activity" in c.split()):
             a = act.find("a", href=True)
@@ -161,22 +161,22 @@ def download_file(session, url, dest_folder, name_hint, log_fn, stop_event):
             filename += fallback_ext
         dest = dest_folder / filename
         if dest.exists():
-            log_fn(f"  ⏭  Già presente: {filename}", "skip")
+            log_fn(f"  ⏭  Gia presente: {filename}", "skip")
             return True
         with open(dest, "wb") as f:
             f.write(resp.content)
         size_kb = len(resp.content) / 1024
-        log_fn(f"  ✓  {filename}  ({size_kb:.0f} KB)", "ok")
+        log_fn(f"  OK  {filename}  ({size_kb:.0f} KB)", "ok")
         return True
     except Exception as e:
-        log_fn(f"  ✗  Errore: {e}", "err")
+        log_fn(f"  ERR  {e}", "err")
         return False
 
 
 def download_folder_moodle(session, folder_url, dest, folder_name, log_fn, stop_event):
     sub = dest / sanitize(folder_name)
     sub.mkdir(parents=True, exist_ok=True)
-    log_fn(f"  📁  Cartella: {folder_name}", "info")
+    log_fn(f"  Cartella: {folder_name}", "info")
     try:
         resp = session.get(folder_url, timeout=30)
         resp.raise_for_status()
@@ -190,11 +190,11 @@ def download_folder_moodle(session, folder_url, dest, folder_name, log_fn, stop_
                 return
             file_url = a["href"]
             file_name = a.get_text(strip=True) or Path(file_url).name
-            log_fn(f"    ↳  {file_name}", "info")
+            log_fn(f"    -> {file_name}", "info")
             download_file(session, file_url, sub, file_name, log_fn, stop_event)
             time.sleep(1.5)
     except Exception as e:
-        log_fn(f"  ✗  Errore cartella: {e}", "err")
+        log_fn(f"  ERR cartella: {e}", "err")
 
 
 def save_url_shortcut(session, url_page, dest_folder, name, log_fn):
@@ -208,9 +208,9 @@ def save_url_shortcut(session, url_page, dest_folder, name, log_fn):
         with open(fname, "w", encoding="utf-8") as f:
             f.write("[InternetShortcut]\n")
             f.write(f"URL={external_url}\n")
-        log_fn(f"  🔗  Link: {name}", "ok")
+        log_fn(f"  Link: {name}", "ok")
     except Exception as e:
-        log_fn(f"  ✗  Errore link: {e}", "err")
+        log_fn(f"  ERR link: {e}", "err")
 
 
 # ─────────────────────────────────────────────────────────────
@@ -218,7 +218,7 @@ def save_url_shortcut(session, url_page, dest_folder, name, log_fn):
 # ─────────────────────────────────────────────────────────────
 
 class FlatEntry(tk.Frame):
-    """Campo di testo con bordo sottile e placeholder."""
+    """Campo input con bordo sottile e placeholder."""
 
     def __init__(self, parent, placeholder="", show="", font=None, **kwargs):
         super().__init__(parent, bg=C["surface"],
@@ -227,48 +227,45 @@ class FlatEntry(tk.Frame):
                          highlightcolor=C["border_focus"])
         self._placeholder = placeholder
         self._show = show
-        self._font = font or ("Helvetica", 12)
-        self._showing_placeholder = True
+        self._is_placeholder = True
 
         self.entry = tk.Entry(self, relief="flat", bd=0,
                               bg=C["surface"], fg=C["text_hint"],
                               insertbackground=C["text"],
-                              font=self._font, show="")
+                              font=font or ("Helvetica", 12))
         self.entry.pack(fill="x", padx=12, pady=9)
 
         if placeholder:
             self.entry.insert(0, placeholder)
 
-        self.entry.bind("<FocusIn>",  self._on_focus_in)
-        self.entry.bind("<FocusOut>", self._on_focus_out)
+        self.entry.bind("<FocusIn>",  self._focus_in)
+        self.entry.bind("<FocusOut>", self._focus_out)
 
-    def _on_focus_in(self, e):
+    def _focus_in(self, e):
         self.config(highlightbackground=C["border_focus"])
-        if self._showing_placeholder:
+        if self._is_placeholder:
             self.entry.delete(0, "end")
             self.entry.config(fg=C["text"], show=self._show)
-            self._showing_placeholder = False
+            self._is_placeholder = False
 
-    def _on_focus_out(self, e):
+    def _focus_out(self, e):
         self.config(highlightbackground=C["border"])
         if not self.entry.get():
             self.entry.config(show="", fg=C["text_hint"])
             self.entry.insert(0, self._placeholder)
-            self._showing_placeholder = True
+            self._is_placeholder = True
 
     def get(self):
-        if self._showing_placeholder:
-            return ""
-        return self.entry.get()
+        return "" if self._is_placeholder else self.entry.get()
 
     def set(self, value):
         self.entry.config(show=self._show, fg=C["text"])
         self.entry.delete(0, "end")
         self.entry.insert(0, value)
-        self._showing_placeholder = False
+        self._is_placeholder = False
 
     def toggle_show(self):
-        if not self._showing_placeholder:
+        if not self._is_placeholder:
             cur = self.entry.cget("show")
             self.entry.config(show="" if cur == self._show else self._show)
 
@@ -278,63 +275,20 @@ class StatCard(tk.Frame):
         super().__init__(parent, bg=C["surface"],
                          highlightthickness=1,
                          highlightbackground=C["border"])
-        self._val_lbl = tk.Label(self, text=value,
-                                  font=("Helvetica", 28, "bold"),
-                                  bg=C["surface"], fg=color)
-        self._val_lbl.pack(pady=(16, 2))
-        tk.Label(self, text=label.upper(),
-                 font=("Helvetica", 9),
-                 bg=C["surface"], fg=C["text_hint"],
-                 letter_spacing=2).pack(pady=(0, 16))
+        self._val = tk.Label(self, text=value,
+                              font=("Helvetica", 26, "bold"),
+                              bg=C["surface"], fg=color)
+        self._val.pack(pady=(14, 2))
+        tk.Label(self, text=label,
+                 font=("Helvetica", 10),
+                 bg=C["surface"], fg=C["text_hint"]).pack(pady=(0, 14))
 
     def set(self, value):
-        self._val_lbl.config(text=str(value))
-
-
-def flat_btn(parent, text, command, bg, fg, hover_bg, font=None, pady=12):
-    """Crea un Label che si comporta come pulsante flat."""
-    lbl = tk.Label(parent, text=text,
-                   font=font or ("Helvetica", 12, "bold"),
-                   bg=bg, fg=fg,
-                   padx=0, pady=pady,
-                   cursor="hand2")
-    lbl._bg = bg
-    lbl._hover_bg = hover_bg
-    lbl._enabled = True
-
-    def on_enter(e):
-        if lbl._enabled:
-            lbl.config(bg=lbl._hover_bg)
-
-    def on_leave(e):
-        if lbl._enabled:
-            lbl.config(bg=lbl._bg)
-
-    def on_click(e):
-        if lbl._enabled and command:
-            command()
-
-    lbl.bind("<Enter>", on_enter)
-    lbl.bind("<Leave>", on_leave)
-    lbl.bind("<ButtonRelease-1>", on_click)
-    return lbl
-
-
-def secondary_btn(parent, text, command):
-    lbl = tk.Label(parent, text=text,
-                   font=("Helvetica", 11),
-                   bg=C["btn_secondary"], fg=C["text"],
-                   padx=18, pady=12, cursor="hand2",
-                   highlightthickness=1,
-                   highlightbackground=C["border"])
-    lbl.bind("<Enter>", lambda e: lbl.config(bg=C["btn_sec_hover"]))
-    lbl.bind("<Leave>", lambda e: lbl.config(bg=C["btn_secondary"]))
-    lbl.bind("<ButtonRelease-1>", lambda e: command())
-    return lbl
+        self._val.config(text=str(value))
 
 
 # ─────────────────────────────────────────────────────────────
-#  APP PRINCIPALE
+#  APP
 # ─────────────────────────────────────────────────────────────
 
 class App(tk.Tk):
@@ -342,8 +296,8 @@ class App(tk.Tk):
         super().__init__()
         self.title("Virtuale UniBO — Downloader")
         self.configure(bg=C["bg"])
-        self.minsize(680, 800)
-        self.resizable(True, True)
+        self.geometry("700x860")
+        self.minsize(640, 780)
 
         self._stop_event = threading.Event()
         self._sections   = []
@@ -354,97 +308,110 @@ class App(tk.Tk):
         self._build_ui()
         self._set_state("idle")
 
-    # ── Costruzione UI ───────────────────────────────────────
-
     def _build_ui(self):
+        # Layout principale: top fisso + middle espandibile + bottom fisso
+        # Questo garantisce che i pulsanti siano SEMPRE visibili in fondo
 
-        # ── Header ──────────────────────────────────────────
-        header = tk.Frame(self, bg=C["bg"])
-        header.pack(fill="x", padx=30, pady=(26, 0))
+        # ── TOP (fisso) ──────────────────────────────────────
+        top = tk.Frame(self, bg=C["bg"])
+        top.pack(side="top", fill="x")
 
-        tk.Label(header, text="Virtuale UniBO",
-                 font=("Georgia", 24, "bold"),
+        # Header
+        hdr = tk.Frame(top, bg=C["bg"])
+        hdr.pack(fill="x", padx=30, pady=(24, 0))
+        tk.Label(hdr, text="Virtuale UniBO",
+                 font=("Georgia", 22, "bold"),
                  bg=C["bg"], fg=C["text"]).pack(anchor="w")
-        tk.Label(header,
-                 text="Scarica i materiali di qualsiasi corso, organizzati per sezione",
-                 font=("Helvetica", 12),
-                 bg=C["bg"], fg=C["text_muted"]).pack(anchor="w", pady=(3, 0))
+        tk.Label(hdr, text="Scarica i materiali di qualsiasi corso organizzati per sezione",
+                 font=("Helvetica", 11),
+                 bg=C["bg"], fg=C["text_muted"]).pack(anchor="w", pady=(2, 0))
 
-        tk.Frame(self, bg=C["border"], height=1).pack(fill="x", padx=30, pady=20)
+        tk.Frame(top, bg=C["border"], height=1).pack(fill="x", padx=30, pady=18)
 
-        # ── Form ────────────────────────────────────────────
-        form = tk.Frame(self, bg=C["bg"])
+        # Form
+        form = tk.Frame(top, bg=C["bg"])
         form.pack(fill="x", padx=30)
 
         # Cookie
-        row_cookie = tk.Frame(form, bg=C["bg"])
-        row_cookie.pack(fill="x", pady=(0, 4))
-        tk.Label(row_cookie, text="MOODLE SESSION COOKIE",
-                 font=("Helvetica", 9, "bold"), letter_spacing=2,
-                 bg=C["bg"], fg=C["text_muted"]).pack(side="left", anchor="w")
-        self._cookie_badge = tk.Label(row_cookie, text="",
-                                       font=("Helvetica", 9, "bold"),
-                                       bg=C["bg"])
-        self._cookie_badge.pack(side="right", anchor="e")
-
+        self._mk_label(form, "COOKIE MOODLESESSION")
         cookie_row = tk.Frame(form, bg=C["bg"])
-        cookie_row.pack(fill="x", pady=(0, 16))
+        cookie_row.pack(fill="x", pady=(4, 14))
+
         self._cookie_entry = FlatEntry(cookie_row,
-                                        placeholder="Incolla qui il cookie MoodleSession…",
-                                        show="•",
+                                        placeholder="Incolla qui il cookie MoodleSession...",
+                                        show="*",
                                         font=("Courier", 12))
         self._cookie_entry.pack(side="left", fill="x", expand=True)
-        eye = tk.Label(cookie_row, text=" 👁 ",
-                        font=("Helvetica", 13),
-                        bg=C["bg"], cursor="hand2", padx=4)
-        eye.pack(side="left")
-        eye.bind("<Button-1>", lambda e: self._cookie_entry.toggle_show())
 
-        # URL
-        tk.Label(form, text="URL DEL CORSO",
-                 font=("Helvetica", 9, "bold"),
-                 bg=C["bg"], fg=C["text_muted"]).pack(anchor="w", pady=(0, 4))
+        tk.Label(cookie_row, text=" Mostra ",
+                 font=("Helvetica", 10),
+                 bg=C["btn_sec"], fg=C["text"],
+                 padx=8, pady=9, cursor="hand2",
+                 highlightthickness=1,
+                 highlightbackground=C["border"]).pack(side="left", padx=(8, 0))
+        cookie_row.winfo_children()[-1].bind(
+            "<Button-1>", lambda e: self._cookie_entry.toggle_show())
+
+        self._cookie_badge = tk.Label(cookie_row, text="",
+                                       font=("Helvetica", 10, "bold"),
+                                       bg=C["bg"], padx=6)
+        self._cookie_badge.pack(side="left")
+
+        # URL corso
+        self._mk_label(form, "URL DEL CORSO")
         self._url_entry = FlatEntry(form,
-                                     placeholder="https://virtuale.unibo.it/course/view.php?id=…",
+                                     placeholder="https://virtuale.unibo.it/course/view.php?id=...",
                                      font=("Courier", 12))
-        self._url_entry.pack(fill="x", pady=(0, 16))
+        self._url_entry.pack(fill="x", pady=(4, 14))
 
         # Destinazione
-        tk.Label(form, text="CARTELLA DI DESTINAZIONE",
-                 font=("Helvetica", 9, "bold"),
-                 bg=C["bg"], fg=C["text_muted"]).pack(anchor="w", pady=(0, 4))
+        self._mk_label(form, "CARTELLA DI DESTINAZIONE")
         dest_row = tk.Frame(form, bg=C["bg"])
-        dest_row.pack(fill="x", pady=(0, 4))
+        dest_row.pack(fill="x", pady=(4, 0))
+
         self._dest_entry = FlatEntry(dest_row,
-                                      placeholder="Scegli una cartella…",
+                                      placeholder="Scegli una cartella...",
                                       font=("Helvetica", 12))
         self._dest_entry.set(str(Path.home() / "Desktop" / "Virtuale_Download"))
         self._dest_entry.pack(side="left", fill="x", expand=True)
-        browse = secondary_btn(dest_row, "  Sfoglia…", self._browse)
-        browse.pack(side="left", padx=(8, 0))
 
-        tk.Frame(self, bg=C["border"], height=1).pack(fill="x", padx=30, pady=20)
+        sfoglia = tk.Label(dest_row, text="  Sfoglia...  ",
+                            font=("Helvetica", 11),
+                            bg=C["btn_sec"], fg=C["text"],
+                            pady=9, cursor="hand2",
+                            highlightthickness=1,
+                            highlightbackground=C["border"])
+        sfoglia.pack(side="left", padx=(8, 0))
+        sfoglia.bind("<Enter>", lambda e: sfoglia.config(bg=C["btn_sec_h"]))
+        sfoglia.bind("<Leave>", lambda e: sfoglia.config(bg=C["btn_sec"]))
+        sfoglia.bind("<Button-1>", lambda e: self._browse())
 
-        # ── Pulsante Analizza ────────────────────────────────
-        self._analyze_btn = flat_btn(self,
-                                      text="Analizza corso  →",
-                                      command=self._analyze,
-                                      bg=C["blue_light"], fg=C["blue"],
-                                      hover_bg="#D0E5F7",
+        tk.Frame(top, bg=C["border"], height=1).pack(fill="x", padx=30, pady=18)
+
+        # Pulsante Analizza
+        self._analyze_btn = tk.Label(top, text="  Analizza corso  ->",
                                       font=("Helvetica", 12, "bold"),
-                                      pady=13)
+                                      bg=C["blue_light"], fg=C["blue"],
+                                      pady=13, cursor="hand2")
         self._analyze_btn.pack(fill="x", padx=30)
+        self._analyze_btn.bind("<Enter>",
+                                lambda e: self._analyze_btn.config(bg="#D0E5F7")
+                                if self._analyze_enabled else None)
+        self._analyze_btn.bind("<Leave>",
+                                lambda e: self._analyze_btn.config(bg=C["blue_light"])
+                                if self._analyze_enabled else None)
+        self._analyze_btn.bind("<Button-1>", lambda e: self._analyze())
+        self._analyze_enabled = True
 
-        # ── Sezioni ──────────────────────────────────────────
-        sec_frame = tk.Frame(self, bg=C["bg"])
-        sec_frame.pack(fill="x", padx=30, pady=(16, 0))
+        # Sezioni trovate
+        sec_outer = tk.Frame(top, bg=C["bg"])
+        sec_outer.pack(fill="x", padx=30, pady=(16, 0))
 
-        self._sections_lbl = tk.Label(sec_frame, text="SEZIONI TROVATE",
-                                       font=("Helvetica", 9, "bold"),
-                                       bg=C["bg"], fg=C["text_hint"])
-        self._sections_lbl.pack(anchor="w", pady=(0, 6))
+        tk.Label(sec_outer, text="SEZIONI TROVATE",
+                 font=("Helvetica", 9, "bold"),
+                 bg=C["bg"], fg=C["text_hint"]).pack(anchor="w", pady=(0, 6))
 
-        sec_card = tk.Frame(sec_frame, bg=C["surface"],
+        sec_card = tk.Frame(sec_outer, bg=C["surface"],
                              highlightthickness=1,
                              highlightbackground=C["border"])
         sec_card.pack(fill="x")
@@ -457,54 +424,51 @@ class App(tk.Tk):
                                        wrap="word", cursor="arrow")
         self._sections_text.pack(fill="x", padx=14, pady=10)
 
-        # ── Statistiche ──────────────────────────────────────
-        stats = tk.Frame(self, bg=C["bg"])
-        stats.pack(fill="x", padx=30, pady=(16, 0))
+        # Statistiche
+        stats_frame = tk.Frame(top, bg=C["bg"])
+        stats_frame.pack(fill="x", padx=30, pady=(16, 0))
         for i in range(3):
-            stats.columnconfigure(i, weight=1)
+            stats_frame.columnconfigure(i, weight=1)
 
-        self._stat_ok  = StatCard(stats, "Scaricati", "–", C["green"])
-        self._stat_err = StatCard(stats, "Errori",    "–", C["red"])
-        self._stat_rem = StatCard(stats, "Rimasti",   "–", C["text_muted"])
-
+        self._stat_ok  = StatCard(stats_frame, "Scaricati", "–", C["green"])
+        self._stat_err = StatCard(stats_frame, "Errori",    "–", C["red"])
+        self._stat_rem = StatCard(stats_frame, "Rimasti",   "–", C["text_muted"])
         for i, card in enumerate([self._stat_ok, self._stat_err, self._stat_rem]):
-            card.grid(row=0, column=i, sticky="ew", padx=(0 if i == 0 else 8, 0))
+            card.grid(row=0, column=i, sticky="ew",
+                      padx=(0 if i == 0 else 8, 0), pady=0)
 
-        # ── Progress bar ─────────────────────────────────────
-        prog_frame = tk.Frame(self, bg=C["bg"])
-        prog_frame.pack(fill="x", padx=30, pady=(16, 0))
-
-        self._prog_lbl = tk.Label(prog_frame, text="",
+        # Progress bar
+        prog = tk.Frame(top, bg=C["bg"])
+        prog.pack(fill="x", padx=30, pady=(14, 0))
+        self._prog_lbl = tk.Label(prog, text="",
                                    font=("Helvetica", 10),
                                    bg=C["bg"], fg=C["text_hint"])
-        self._prog_lbl.pack(anchor="e", pady=(0, 5))
-
-        track = tk.Frame(prog_frame, bg=C["border"], height=5)
+        self._prog_lbl.pack(anchor="e", pady=(0, 4))
+        track = tk.Frame(prog, bg=C["border"], height=6)
         track.pack(fill="x")
         track.pack_propagate(False)
-        self._prog_fill = tk.Frame(track, bg=C["green"], height=5)
+        self._prog_fill = tk.Frame(track, bg=C["green"], height=6)
         self._prog_fill.place(x=0, y=0, relheight=1, relwidth=0)
 
-        # ── Log ──────────────────────────────────────────────
-        log_frame = tk.Frame(self, bg=C["bg"])
-        log_frame.pack(fill="both", expand=True, padx=30, pady=(16, 0))
+        # ── MIDDLE (espandibile) — Log ───────────────────────
+        mid = tk.Frame(self, bg=C["bg"])
+        mid.pack(side="top", fill="both", expand=True, padx=30, pady=(14, 0))
 
-        tk.Label(log_frame, text="LOG",
+        tk.Label(mid, text="LOG",
                  font=("Helvetica", 9, "bold"),
                  bg=C["bg"], fg=C["text_hint"]).pack(anchor="w", pady=(0, 6))
 
-        log_card = tk.Frame(log_frame, bg=C["log_bg"],
+        log_card = tk.Frame(mid, bg=C["log_bg"],
                              highlightthickness=1,
                              highlightbackground=C["border"])
         log_card.pack(fill="both", expand=True)
 
         self._log = tk.Text(log_card, font=("Courier", 10),
                              bg=C["log_bg"], fg=C["text_muted"],
-                             relief="flat", bd=0, state="disabled",
-                             wrap="word", cursor="arrow")
+                             relief="flat", bd=0,
+                             state="disabled", wrap="word", cursor="arrow")
         sb = tk.Scrollbar(log_card, command=self._log.yview,
-                           relief="flat", bd=0, width=8,
-                           bg=C["bg"], troughcolor=C["border"])
+                           relief="flat", bd=0, width=8)
         self._log.configure(yscrollcommand=sb.set)
         sb.pack(side="right", fill="y", pady=4, padx=(0, 2))
         self._log.pack(fill="both", expand=True, padx=12, pady=10)
@@ -517,24 +481,61 @@ class App(tk.Tk):
         self._log.tag_config("section", foreground=C["text"],
                               font=("Courier", 10, "bold"))
 
-        # ── Pulsanti azione ──────────────────────────────────
-        btn_row = tk.Frame(self, bg=C["bg"])
-        btn_row.pack(fill="x", padx=30, pady=(14, 26))
+        # ── BOTTOM (fisso) — Pulsanti ────────────────────────
+        # Separatore sopra i pulsanti
+        tk.Frame(self, bg=C["border"], height=1).pack(side="top", fill="x", padx=30)
 
-        self._download_btn = flat_btn(btn_row,
-                                       text="  Scarica tutto  ↓",
-                                       command=self._start_download,
-                                       bg=C["accent"], fg=C["accent_fg"],
-                                       hover_bg=C["btn_hover"],
+        bottom = tk.Frame(self, bg=C["bg"])
+        bottom.pack(side="bottom", fill="x", padx=30, pady=20)
+
+        # Pulsante DOWNLOAD (grande, sempre visibile)
+        self._download_btn = tk.Label(bottom,
+                                       text="  Scarica tutto  v",
                                        font=("Helvetica", 13, "bold"),
-                                       pady=14)
+                                       bg=C["disabled_bg"], fg=C["disabled_fg"],
+                                       pady=15, cursor="arrow")
         self._download_btn.pack(side="left", fill="x", expand=True)
+        self._download_btn.bind("<Enter>", self._dl_hover_in)
+        self._download_btn.bind("<Leave>", self._dl_hover_out)
+        self._download_btn.bind("<Button-1>", lambda e: self._start_download())
+        self._download_enabled = False
 
-        self._stop_btn = secondary_btn(btn_row, "  Ferma  ◼", self._stop)
+        # Pulsante Ferma
+        self._stop_btn = tk.Label(bottom, text="  Ferma  ",
+                                   font=("Helvetica", 11),
+                                   bg=C["btn_sec"], fg=C["text"],
+                                   pady=15, padx=16, cursor="hand2",
+                                   highlightthickness=1,
+                                   highlightbackground=C["border"])
         self._stop_btn.pack(side="left", padx=(10, 0))
+        self._stop_btn.bind("<Enter>", lambda e: self._stop_btn.config(bg=C["btn_sec_h"]))
+        self._stop_btn.bind("<Leave>", lambda e: self._stop_btn.config(bg=C["btn_sec"]))
+        self._stop_btn.bind("<Button-1>", lambda e: self._stop())
 
-        self._open_btn = secondary_btn(btn_row, "  Apri cartella  ↗", self._open_folder)
+        # Pulsante Apri cartella
+        self._open_btn = tk.Label(bottom, text="  Apri cartella  ",
+                                   font=("Helvetica", 11),
+                                   bg=C["btn_sec"], fg=C["text"],
+                                   pady=15, padx=16, cursor="hand2",
+                                   highlightthickness=1,
+                                   highlightbackground=C["border"])
         self._open_btn.pack(side="left", padx=(10, 0))
+        self._open_btn.bind("<Enter>", lambda e: self._open_btn.config(bg=C["btn_sec_h"]))
+        self._open_btn.bind("<Leave>", lambda e: self._open_btn.config(bg=C["btn_sec"]))
+        self._open_btn.bind("<Button-1>", lambda e: self._open_folder())
+
+    def _mk_label(self, parent, text):
+        tk.Label(parent, text=text,
+                 font=("Helvetica", 9, "bold"),
+                 bg=C["bg"], fg=C["text_muted"]).pack(anchor="w")
+
+    def _dl_hover_in(self, e):
+        if self._download_enabled:
+            self._download_btn.config(bg=C["btn_hover"])
+
+    def _dl_hover_out(self, e):
+        if self._download_enabled:
+            self._download_btn.config(bg=C["accent"])
 
     # ── Azioni ───────────────────────────────────────────────
 
@@ -544,13 +545,17 @@ class App(tk.Tk):
             self._dest_entry.set(folder)
 
     def _analyze(self):
+        if not self._analyze_enabled:
+            return
         cookie = self._cookie_entry.get().strip()
         url    = self._url_entry.get().strip()
         if not cookie or not url:
-            messagebox.showwarning("Campi mancanti", "Inserisci il cookie e l'URL del corso.")
+            messagebox.showwarning("Campi mancanti",
+                                   "Inserisci il cookie MoodleSession e l'URL del corso.")
             return
         self._set_state("analyzing")
-        threading.Thread(target=self._th_analyze, args=(cookie, url), daemon=True).start()
+        threading.Thread(target=self._th_analyze,
+                         args=(cookie, url), daemon=True).start()
 
     def _th_analyze(self, cookie, url):
         try:
@@ -574,25 +579,25 @@ class App(tk.Tk):
             self._sections_text.insert("end", f"  {s['title']}   ({n} risorse)\n")
         self._sections_text.config(state="disabled")
 
-        self._cookie_badge.config(text="● Sessione valida", fg=C["green"])
+        self._cookie_badge.config(text="Valido", fg=C["green"])
         self._stat_ok.set("0")
         self._stat_err.set("0")
         self._stat_rem.set(str(total))
         self._set_state("ready")
-        self._write_log(f"Trovate {len(sections)} sezioni · {total} risorse totali", "ok")
+        self._write_log(f"Trovate {len(sections)} sezioni, {total} risorse totali.", "ok")
 
     def _analyze_fail(self, err):
-        self._cookie_badge.config(text="● Sessione non valida", fg=C["red"])
+        self._cookie_badge.config(text="Errore", fg=C["red"])
         messagebox.showerror("Errore analisi", err)
         self._set_state("idle")
 
     def _start_download(self):
-        if not self._sections:
-            messagebox.showwarning("Prima analizza", "Clicca prima su 'Analizza corso'.")
+        if not self._download_enabled:
             return
         dest = self._dest_entry.get().strip()
         if not dest:
-            messagebox.showwarning("Cartella mancante", "Scegli una cartella di destinazione.")
+            messagebox.showwarning("Cartella mancante",
+                                   "Scegli una cartella di destinazione.")
             return
         cookie = self._cookie_entry.get().strip()
         self._stop_event.clear()
@@ -620,6 +625,7 @@ class App(tk.Tk):
             for item in section["items"]:
                 if self._stop_event.is_set():
                     break
+
                 name = item["name"]
                 url  = item["url"]
                 kind = item["type"]
@@ -628,7 +634,7 @@ class App(tk.Tk):
                     self.after(0, self._write_log, m, t)
 
                 if kind == "file":
-                    self.after(0, self._write_log, f"  ↓  {name}", "info")
+                    self.after(0, self._write_log, f"  -> {name}", "info")
                     ok = download_file(session, url, folder_path, name,
                                        log, self._stop_event)
                     if ok:
@@ -648,17 +654,20 @@ class App(tk.Tk):
                     self._done += 1
 
                 elif kind == "forum":
-                    self.after(0, self._write_log, f"  –  Forum ignorato: {name}", "skip")
+                    self.after(0, self._write_log,
+                               f"  - Forum ignorato: {name}", "skip")
 
                 rem = max(0, self._total - self._done - self._errors)
                 pct = (self._done + self._errors) / max(self._total, 1)
-                self.after(0, self._update_progress, self._done, self._errors, rem, pct)
+                self.after(0, self._update_progress,
+                           self._done, self._errors, rem, pct)
 
         self.after(0, self._download_done)
 
     def _download_done(self):
         self._set_state("done")
-        self._write_log(f"\nCompletato — {self._done} scaricati, {self._errors} errori.", "ok")
+        self._write_log(
+            f"\nCompletato — {self._done} scaricati, {self._errors} errori.", "ok")
         messagebox.showinfo("Download completato",
                             f"Scaricati:  {self._done}\n"
                             f"Errori:     {self._errors}\n\n"
@@ -666,7 +675,7 @@ class App(tk.Tk):
 
     def _stop(self):
         self._stop_event.set()
-        self._write_log("\nDownload interrotto dall'utente.", "warn")
+        self._write_log("\nDownload interrotto.", "warn")
         self._set_state("ready")
 
     def _open_folder(self):
@@ -682,7 +691,7 @@ class App(tk.Tk):
         else:
             subprocess.run(["xdg-open", dest])
 
-    # ── Helpers UI ───────────────────────────────────────────
+    # ── Helpers ──────────────────────────────────────────────
 
     def _write_log(self, message, tag="info"):
         self._log.config(state="normal")
@@ -695,55 +704,61 @@ class App(tk.Tk):
         self._stat_err.set(str(err))
         self._stat_rem.set(str(rem))
         self._prog_fill.place(relwidth=pct)
-        self._prog_lbl.config(text=f"{pct*100:.0f}%  ·  {ok + err} di {self._total}")
+        self._prog_lbl.config(
+            text=f"{pct*100:.0f}%  -  {ok + err} di {self._total}")
 
     def _set_state(self, state):
         if state == "idle":
-            self._analyze_btn.config(text="Analizza corso  →",
-                                      bg=C["blue_light"], fg=C["blue"])
-            self._analyze_btn._bg       = C["blue_light"]
-            self._analyze_btn._hover_bg = "#D0E5F7"
-            self._analyze_btn._enabled  = True
-            self._analyze_btn.config(cursor="hand2")
-            self._download_btn.config(bg=C["disabled"], fg=C["surface"], cursor="arrow")
-            self._download_btn._enabled = False
+            # Analizza: attivo
+            self._analyze_btn.config(text="  Analizza corso  ->",
+                                      bg=C["blue_light"], fg=C["blue"],
+                                      cursor="hand2")
+            self._analyze_enabled = True
+            # Download: disabilitato
+            self._download_btn.config(text="  Scarica tutto  v",
+                                       bg=C["disabled_bg"], fg=C["disabled_fg"],
+                                       cursor="arrow")
+            self._download_enabled = False
 
         elif state == "analyzing":
-            self._analyze_btn.config(text="Analisi in corso…",
-                                      bg=C["border"], fg=C["text_hint"], cursor="arrow")
-            self._analyze_btn._enabled  = False
-            self._download_btn.config(bg=C["disabled"], fg=C["surface"], cursor="arrow")
-            self._download_btn._enabled = False
+            self._analyze_btn.config(text="  Analisi in corso...",
+                                      bg=C["border"], fg=C["text_hint"],
+                                      cursor="arrow")
+            self._analyze_enabled = False
+            self._download_btn.config(bg=C["disabled_bg"], fg=C["disabled_fg"],
+                                       cursor="arrow")
+            self._download_enabled = False
 
         elif state == "ready":
-            self._analyze_btn.config(text="Ri-analizza  →",
-                                      bg=C["blue_light"], fg=C["blue"], cursor="hand2")
-            self._analyze_btn._bg       = C["blue_light"]
-            self._analyze_btn._hover_bg = "#D0E5F7"
-            self._analyze_btn._enabled  = True
-            self._download_btn.config(text="  Scarica tutto  ↓",
-                                       bg=C["accent"], fg=C["accent_fg"], cursor="hand2")
-            self._download_btn._bg      = C["accent"]
-            self._download_btn._hover_bg = C["btn_hover"]
-            self._download_btn._enabled = True
+            # Analizza: ri-analizza
+            self._analyze_btn.config(text="  Ri-analizza  ->",
+                                      bg=C["blue_light"], fg=C["blue"],
+                                      cursor="hand2")
+            self._analyze_enabled = True
+            # Download: ATTIVO e ben visibile
+            self._download_btn.config(text="  Scarica tutto  v",
+                                       bg=C["accent"], fg=C["accent_fg"],
+                                       cursor="hand2")
+            self._download_enabled = True
 
         elif state == "downloading":
-            self._analyze_btn.config(bg=C["border"], fg=C["text_hint"], cursor="arrow")
-            self._analyze_btn._enabled  = False
-            self._download_btn.config(text="  Download in corso…",
-                                       bg=C["disabled"], fg=C["surface"], cursor="arrow")
-            self._download_btn._enabled = False
+            self._analyze_btn.config(bg=C["border"], fg=C["text_hint"],
+                                      cursor="arrow")
+            self._analyze_enabled = False
+            self._download_btn.config(text="  Download in corso...",
+                                       bg=C["disabled_bg"], fg=C["disabled_fg"],
+                                       cursor="arrow")
+            self._download_enabled = False
 
         elif state == "done":
-            self._analyze_btn.config(text="Ri-analizza  →",
-                                      bg=C["blue_light"], fg=C["blue"], cursor="hand2")
-            self._analyze_btn._bg       = C["blue_light"]
-            self._analyze_btn._enabled  = True
-            self._download_btn.config(text="  Scarica tutto  ↓",
-                                       bg=C["accent"], fg=C["accent_fg"], cursor="hand2")
-            self._download_btn._bg      = C["accent"]
-            self._download_btn._hover_bg = C["btn_hover"]
-            self._download_btn._enabled = True
+            self._analyze_btn.config(text="  Ri-analizza  ->",
+                                      bg=C["blue_light"], fg=C["blue"],
+                                      cursor="hand2")
+            self._analyze_enabled = True
+            self._download_btn.config(text="  Scarica tutto  v",
+                                       bg=C["accent"], fg=C["accent_fg"],
+                                       cursor="hand2")
+            self._download_enabled = True
 
 
 # ─────────────────────────────────────────────────────────────

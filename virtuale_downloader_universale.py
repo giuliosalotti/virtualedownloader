@@ -26,11 +26,11 @@ from urllib.parse import urlparse, unquote
 #  CONFIGURAZIONE — MODIFICA QUI
 # ─────────────────────────────────────────────
 
-MOODLE_SESSION = "INCOLLA_QUI_IL_TUO_MOODLESESSION"
+MOODLE_SESSION = "32mcr22m4hnpnbs2j7s9lsm7qn"
 
 # URL della pagina principale del corso (quella con tutte le sezioni)
 # Esempio: https://virtuale.unibo.it/course/view.php?id=69060
-COURSE_URL = "INCOLLA_QUI_L_URL_DEL_CORSO"
+COURSE_URL = "https://virtuale.unibo.it/course/view.php?id=71387"
 
 # Cartella di destinazione (viene creata automaticamente)
 OUTPUT_DIR = "./Virtuale_Download"
