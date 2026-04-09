@@ -45,7 +45,7 @@ pip install -r requirements.txt
 ## Avvio
 
 ```bash
-python virtuale_gui.py
+python virtuale_downloader.py
 ```
 
 ---
@@ -67,7 +67,7 @@ python virtuale_gui.py
 |---|---|
 | Cookie MoodleSession | `d4f8a1b2c3e9f012...` |
 | URL del corso | `https://virtuale.unibo.it/course/view.php?id=69060` |
-| Cartella di destinazione | `/Users/giulio/Desktop/BPA_Course` |
+| Cartella di destinazione | `/Users/yourName/BPA_Course` |
 
 ### 3 — Analizza e scarica
 
@@ -82,7 +82,7 @@ python virtuale_gui.py
 ```
 BPA_Course/
 ├── 00 - Introduzione/
-├── 01 - Course outline - Riccardo Silvi/
+├── 01 - Course outline /
 ├── 02 - Study material/
 │   ├── Reading 1 - Business performance analytics.pdf
 │   ├── Reading 2 - Business Performance Analytics.pdf
