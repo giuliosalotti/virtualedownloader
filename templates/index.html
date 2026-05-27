@@ -154,6 +154,10 @@
       font-family: "SF Mono", Menlo, "Fira Code", monospace;
       font-size: 13px !important;
     }
+    .token-input {
+      -webkit-text-security: disc;
+      text-security: disc;
+    }
 
     /* ── BUTTONS ──────────────────────────────────── */
     .btn {
@@ -404,9 +408,8 @@
 
         <div class="field">
           <label class="field-lbl" for="moodle-session">Cookie MoodleSession</label>
-          <input id="moodle-session" class="field-in mono" type="password"
-            autocomplete="new-password" spellcheck="false"
-            data-1p-ignore="true" data-lpignore="true" data-form-type="other"
+          <input id="moodle-session" class="field-in mono token-input" type="text"
+            autocomplete="off" spellcheck="false" autocorrect="off" autocapitalize="off"
             placeholder="Incolla il valore del cookie…" />
         </div>
 

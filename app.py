@@ -79,13 +79,21 @@ def parse_course(moodle_session: str, course_url: str) -> dict:
 
     soup = BeautifulSoup(resp.text, "html.parser")
 
-    # Estrae il nome del corso dal tag <title> (formato Moodle: "Nome corso: Sito")
-    title_tag = soup.find("title")
-    if title_tag:
-        raw = title_tag.get_text(strip=True)
-        course_name = raw.split(":")[0].strip() or raw.split("|")[0].strip() or "Corso"
+    # Estrae il nome del corso dall'<h1> (più diretto), con fallback sul <title>
+    h1 = soup.find("h1")
+    if h1:
+        course_name = h1.get_text(strip=True)
     else:
-        course_name = "Corso"
+        title_tag = soup.find("title")
+        if title_tag:
+            # Formato Moodle: "Corso: Business Models | Virtuale" → "Business Models"
+            raw = title_tag.get_text(strip=True)
+            if ": " in raw:
+                course_name = raw.split(": ", 1)[1].split(" | ")[0].strip()
+            else:
+                course_name = raw.split(" | ")[0].strip()
+        else:
+            course_name = "Corso"
 
     sections = soup.find_all("li", class_=lambda c: c and "section" in c.split())
 
