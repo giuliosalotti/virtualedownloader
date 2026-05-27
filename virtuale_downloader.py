@@ -10,27 +10,22 @@ UTILIZZO:
     1. Fai login su virtuale.unibo.it nel browser
     2. Apri DevTools (F12) → Application → Cookies → virtuale.unibo.it
     3. Copia il valore del cookie "MoodleSession"
-    4. Imposta MOODLE_SESSION e COURSE_URL qui sotto
-    5. Esegui: python virtuale_downloader_universale.py
+    4. Esegui: python virtuale_downloader_universale.py
+    5. Incolla il cookie e l'URL del corso quando richiesti
 """
 
 import os
 import re
 import time
+import getpass
 import requests
 from pathlib import Path
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse, unquote
 
 # ─────────────────────────────────────────────
-#  CONFIGURAZIONE — MODIFICA QUI
+#  CONFIGURAZIONE
 # ─────────────────────────────────────────────
-
-MOODLE_SESSION = "32mcr22m4hnpnbs2j7s9lsm7qn"
-
-# URL della pagina principale del corso (quella con tutte le sezioni)
-# Esempio: https://virtuale.unibo.it/course/view.php?id=69060
-COURSE_URL = "https://virtuale.unibo.it/course/view.php?id=71387"
 
 # Cartella di destinazione (viene creata automaticamente)
 OUTPUT_DIR = "./Virtuale_Download"
@@ -39,6 +34,37 @@ OUTPUT_DIR = "./Virtuale_Download"
 DELAY_SECONDS = 1.5
 
 # ─────────────────────────────────────────────
+
+
+def prompt_inputs() -> tuple[str, str]:
+    """Chiede all'utente il cookie di sessione e l'URL del corso."""
+    print("=" * 60)
+    print("  Virtuale UniBO — Downloader Universale")
+    print("=" * 60)
+    print()
+    print("Come trovare il cookie MoodleSession:")
+    print("  1. Fai login su virtuale.unibo.it")
+    print("  2. F12 → Application → Cookies → virtuale.unibo.it")
+    print("  3. Copia il valore di 'MoodleSession'")
+    print()
+
+    # getpass nasconde il valore mentre si digita (il cookie è sensibile)
+    moodle_session = getpass.getpass("🔑  MoodleSession (nascosto): ").strip()
+    if not moodle_session:
+        print("❗  Cookie non inserito. Uscita.")
+        raise SystemExit(1)
+
+    print()
+    course_url = input("🌐  URL del corso (es. https://virtuale.unibo.it/course/view.php?id=XXXXX): ").strip()
+    if not course_url:
+        print("❗  URL non inserito. Uscita.")
+        raise SystemExit(1)
+
+    if not course_url.startswith("https://virtuale.unibo.it"):
+        print("⚠️  Attenzione: l'URL non sembra appartenere a virtuale.unibo.it")
+
+    print()
+    return moodle_session, course_url
 
 
 def sanitize(name: str, max_len: int = 80) -> str:
@@ -106,10 +132,10 @@ def download_file(session: requests.Session, url: str, dest_folder: Path, name_h
                 print(f"    ⚠️  Nessun file trovato per: {name_hint}")
                 return False
 
-        ct_base     = ct.split(";")[0].strip()
+        ct_base      = ct.split(";")[0].strip()
         fallback_ext = EXT_MAP.get(ct_base, ".bin")
-        raw_name    = filename_from_response(resp, sanitize(name_hint) + fallback_ext)
-        filename    = sanitize(raw_name)
+        raw_name     = filename_from_response(resp, sanitize(name_hint) + fallback_ext)
+        filename     = sanitize(raw_name)
         if not Path(filename).suffix:
             filename += fallback_ext
 
@@ -168,7 +194,6 @@ def save_url_shortcut(session: requests.Session, url_page: str,
         resp.raise_for_status()
         soup = BeautifulSoup(resp.text, "html.parser")
 
-        # Moodle mostra il link esterno in un <div class="urlworkaround"> o simili
         ext = (
             soup.find("a", href=re.compile(r"^https?://(?!virtuale\.unibo\.it)")) or
             soup.find("a", class_=re.compile(r"btn"))
@@ -199,16 +224,14 @@ def parse_course(session: requests.Session, course_url: str) -> list[dict]:
     resp = session.get(course_url, timeout=30)
     resp.raise_for_status()
 
-    # Controlla se siamo stati reindirizzati al login
     if "login" in resp.url:
         raise ValueError("❌  Sessione scaduta o non valida. Rinnova il cookie MoodleSession.")
 
-    soup    = BeautifulSoup(resp.text, "html.parser")
+    soup     = BeautifulSoup(resp.text, "html.parser")
     sections = soup.find_all("li", class_=lambda c: c and "section" in c.split())
 
     result = []
     for i, sec in enumerate(sections):
-        # Titolo sezione
         title_el = (
             sec.find("h3") or
             sec.find("h2") or
@@ -236,7 +259,6 @@ def parse_course(session: requests.Session, course_url: str) -> list[dict]:
             else:
                 kind = "other"
 
-            # Pulisce il nome rimuovendo suffissi Moodle visibili
             name = a.get_text(strip=True)
             for suffix in ("File", "Cartella", "URL", "Forum", "Compito", "Pagina", "Risorsa"):
                 if name.endswith(suffix):
@@ -255,21 +277,11 @@ def parse_course(session: requests.Session, course_url: str) -> list[dict]:
 # ─────────────────────────────────────────────
 
 def main():
-    # Validazioni iniziali
-    if MOODLE_SESSION == "INCOLLA_QUI_IL_TUO_MOODLESESSION":
-        print("❗  Imposta la variabile MOODLE_SESSION nel file.")
-        return
-    if COURSE_URL == "INCOLLA_QUI_L_URL_DEL_CORSO":
-        print("❗  Imposta la variabile COURSE_URL nel file.")
-        return
+    MOODLE_SESSION, COURSE_URL = prompt_inputs()
 
     session   = build_session(MOODLE_SESSION)
     base_path = Path(OUTPUT_DIR)
     base_path.mkdir(parents=True, exist_ok=True)
-
-    # Estrai nome corso dall'URL per la cartella
-    course_id = re.search(r"id=(\d+)", COURSE_URL)
-    course_id = course_id.group(1) if course_id else "corso"
 
     try:
         sections = parse_course(session, COURSE_URL)

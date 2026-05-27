@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Virtuale UniBO Downloader</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            unibo: { DEFAULT: '#c8102e', dark: '#9e0c24', light: '#e83050' }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    .fade-in { animation: fadeIn .25s ease; }
+    @keyframes fadeIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+    .spinner { animation: spin .8s linear infinite; display:inline-block; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    input[type=checkbox] { accent-color: #c8102e; }
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: #f1f1f1; }
+    ::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }
+  </style>
+</head>
+<body class="bg-gray-100 min-h-screen font-sans text-gray-800">
+
+  <!-- Header -->
+  <header class="bg-unibo shadow-md">
+    <div class="max-w-3xl mx-auto px-6 py-5 flex items-center gap-4">
+      <span class="text-4xl select-none">📚</span>
+      <div>
+        <h1 class="text-xl font-bold text-white tracking-wide">Virtuale UniBO Downloader</h1>
+        <p class="text-red-200 text-sm mt-0.5">Scarica i materiali del tuo corso in un click</p>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-3xl mx-auto px-4 py-8 space-y-5">
+
+    <!-- ── STEP 1: Credenziali ─────────────────────────────── -->
+    <section id="step-credentials" class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden fade-in">
+      <div class="px-6 py-4 border-b border-gray-100 flex items-center gap-3">
+        <span class="w-7 h-7 bg-unibo text-white rounded-full flex items-center justify-center text-sm font-bold shrink-0">1</span>
+        <h2 class="font-semibold">Credenziali</h2>
+      </div>
+
+      <div class="px-6 py-5 space-y-5">
+        <!-- Istruzioni -->
+        <div class="bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm text-blue-800">
+          <p class="font-semibold mb-2">Come trovare il cookie MoodleSession</p>
+          <ol class="list-decimal list-inside space-y-1 text-blue-700">
+            <li>Fai login su <strong>virtuale.unibo.it</strong></li>
+            <li>Premi <kbd class="bg-blue-100 border border-blue-300 rounded px-1.5 py-0.5 font-mono text-xs">F12</kbd> per aprire i DevTools</li>
+            <li>Vai in <strong>Application → Cookies → virtuale.unibo.it</strong></li>
+            <li>Copia il valore di <code class="bg-blue-100 border border-blue-300 rounded px-1 py-0.5 font-mono text-xs">MoodleSession</code></li>
+          </ol>
+        </div>
+
+        <!-- Input -->
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">🔑 Cookie MoodleSession</label>
+            <input id="moodle-session" type="password" autocomplete="off" spellcheck="false"
+              placeholder="Incolla qui il valore del cookie…"
+              class="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm font-mono
+                     focus:outline-none focus:ring-2 focus:ring-unibo/30 focus:border-unibo transition-colors" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">🌐 URL del corso</label>
+            <input id="course-url" type="url" autocomplete="off" spellcheck="false"
+              placeholder="https://virtuale.unibo.it/course/view.php?id=XXXXX"
+              class="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm
+                     focus:outline-none focus:ring-2 focus:ring-unibo/30 focus:border-unibo transition-colors" />
+          </div>
+        </div>
+
+        <div id="analyze-error" class="hidden bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm"></div>
+
+        <button id="btn-analyze" onclick="analyze()"
+          class="w-full bg-unibo hover:bg-unibo-dark active:scale-[.99] text-white font-semibold
+                 py-3 rounded-xl transition-all flex items-center justify-center gap-2 select-none">
+          <span id="analyze-icon">🔍</span>
+          <span id="analyze-text">Analizza corso</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- ── STEP 2: Anteprima corso ────────────────────────── -->
+    <section id="step-preview" class="hidden bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden fade-in">
+      <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between flex-wrap gap-2">
+        <div class="flex items-center gap-3">
+          <span class="w-7 h-7 bg-unibo text-white rounded-full flex items-center justify-center text-sm font-bold shrink-0">2</span>
+          <h2 class="font-semibold">Contenuti del corso</h2>
+          <span id="stats-badge" class="text-xs bg-gray-100 text-gray-500 rounded-full px-2.5 py-0.5"></span>
+        </div>
+        <div class="flex items-center gap-3 text-sm">
+          <button onclick="selectAll(true)" class="text-unibo hover:underline font-medium">Seleziona tutti</button>
+          <span class="text-gray-300">|</span>
+          <button onclick="selectAll(false)" class="text-gray-500 hover:underline">Deseleziona</button>
+        </div>
+      </div>
+
+      <div id="sections-container" class="divide-y divide-gray-100"></div>
+
+      <div class="px-6 py-4 bg-gray-50 border-t border-gray-100">
+        <button id="btn-download" onclick="startDownload()"
+          class="w-full bg-unibo hover:bg-unibo-dark active:scale-[.99] text-white font-semibold
+                 py-3 rounded-xl transition-all flex items-center justify-center gap-2 select-none">
+          <span>⬇️</span>
+          <span id="download-btn-text">Scarica selezionati</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- ── STEP 3: Progresso download ─────────────────────── -->
+    <section id="step-progress" class="hidden bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden fade-in">
+      <div class="px-6 py-4 border-b border-gray-100 flex items-center gap-3">
+        <span id="step3-num" class="w-7 h-7 bg-unibo text-white rounded-full flex items-center justify-center text-sm font-bold shrink-0">3</span>
+        <h2 id="step3-title" class="font-semibold">Download in corso…</h2>
+      </div>
+
+      <!-- Barra di avanzamento -->
+      <div class="px-6 pt-5 pb-3">
+        <div class="flex justify-between text-xs text-gray-500 mb-1.5">
+          <span id="progress-label" class="truncate max-w-xs">Preparazione…</span>
+          <span id="progress-pct" class="font-mono font-medium">0%</span>
+        </div>
+        <div class="w-full bg-gray-200 rounded-full h-2">
+          <div id="progress-bar" class="bg-unibo h-2 rounded-full transition-all duration-300 ease-out" style="width:0%"></div>
+        </div>
+      </div>
+
+      <!-- Log in tempo reale -->
+      <div id="log"
+        class="mx-6 mb-4 h-52 overflow-y-auto bg-gray-50 border border-gray-200 rounded-xl
+               p-3 font-mono text-xs space-y-0.5 text-gray-500">
+        <div class="text-gray-400 italic">In attesa di eventi…</div>
+      </div>
+
+      <!-- Sezione ZIP (nascosta finché non è pronto) -->
+      <div id="zip-section" class="hidden px-6 pb-6 space-y-3">
+        <div class="bg-green-50 border border-green-200 rounded-xl px-4 py-3 flex items-center gap-2">
+          <span class="text-green-600 text-lg">🎉</span>
+          <p id="done-text" class="text-green-700 font-medium text-sm"></p>
+        </div>
+        <a id="zip-link" href="#"
+          class="flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700
+                 text-white font-semibold py-3 rounded-xl transition-colors w-full select-none">
+          <span>📦</span>
+          <span>Scarica archivio ZIP</span>
+        </a>
+        <button onclick="reset()"
+          class="w-full text-gray-400 hover:text-gray-600 text-sm py-2 transition-colors">
+          ↩ Scarica un altro corso
+        </button>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="text-center text-gray-400 text-xs pb-8">
+    Solo per uso personale · virtuale.unibo.it
+  </footer>
+
+<script>
+let currentMoodleSession = '';
+let currentSessionId    = '';
+let courseData          = null;
+
+// ── utilità ────────────────────────────────────────────────────
+
+function show(id)  { document.getElementById(id).classList.remove('hidden'); }
+function hide(id)  { document.getElementById(id).classList.add('hidden'); }
+
+function setBtn(id, disabled, icon, label) {
+  const btn = document.getElementById(id);
+  btn.disabled = disabled;
+  btn.classList.toggle('opacity-60', disabled);
+  btn.classList.toggle('cursor-not-allowed', disabled);
+  if (icon  !== null) document.getElementById(id.replace('btn-','') + '-icon').textContent = icon;
+  if (label !== null) {
+    const span = btn.querySelector('span:last-child');
+    if (span) span.textContent = label;
+  }
+}
+
+function showError(msg) {
+  const el = document.getElementById('analyze-error');
+  el.textContent = msg;
+  show('analyze-error');
+}
+
+function typeIcon(t) {
+  return {file:'📄', folder:'📁', url:'🔗', forum:'💬', other:'❓'}[t] ?? '❓';
+}
+
+function typeBadge(t) {
+  const colors = {
+    file:   'bg-blue-100 text-blue-700',
+    folder: 'bg-amber-100 text-amber-700',
+    url:    'bg-purple-100 text-purple-700',
+    forum:  'bg-gray-100  text-gray-400',
+    other:  'bg-gray-100  text-gray-400',
+  };
+  return `<span class="text-xs px-2 py-0.5 rounded-full shrink-0 ${colors[t] ?? colors.other}">${t}</span>`;
+}
+
+// ── Step 1: analisi ─────────────────────────────────────────────
+
+async function analyze() {
+  hide('analyze-error');
+  const moodleSession = document.getElementById('moodle-session').value.trim();
+  const courseUrl     = document.getElementById('course-url').value.trim();
+
+  if (!moodleSession) { showError('Inserisci il cookie MoodleSession.'); return; }
+  if (!courseUrl)     { showError("Inserisci l'URL del corso."); return; }
+  if (!courseUrl.startsWith('https://virtuale.unibo.it')) {
+    showError("L'URL deve iniziare con https://virtuale.unibo.it");
+    return;
+  }
+
+  setBtn('btn-analyze', true, '⏳', 'Analisi in corso…');
+
+  try {
+    const res  = await fetch('/api/analyze', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ moodleSession, courseUrl }),
+    });
+    const data = await res.json();
+
+    if (!data.ok) { showError(data.error ?? 'Errore sconosciuto.'); return; }
+
+    currentMoodleSession = moodleSession;
+    courseData = data.sections;
+    renderPreview(data.sections);
+    show('step-preview');
+    document.getElementById('step-preview').scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  } catch (e) {
+    showError(`Errore di rete: ${e.message}`);
+  } finally {
+    setBtn('btn-analyze', false, '🔍', 'Analizza corso');
+  }
+}
+
+// ── Step 2: anteprima ───────────────────────────────────────────
+
+function renderPreview(sections) {
+  const container = document.getElementById('sections-container');
+  container.innerHTML = '';
+
+  const totalItems = sections.reduce((n, s) => n + s.items.length, 0);
+  document.getElementById('stats-badge').textContent =
+    `${sections.length} sezioni · ${totalItems} risorse`;
+
+  sections.forEach((section, si) => {
+    // Intestazione sezione
+    const header = document.createElement('div');
+    header.className = 'flex items-center gap-3 px-5 py-3 bg-gray-50 hover:bg-gray-100 ' +
+      'cursor-pointer select-none transition-colors group';
+    header.innerHTML = `
+      <input type="checkbox" checked data-section="${si}"
+        class="section-checkbox w-4 h-4 rounded cursor-pointer shrink-0" />
+      <span id="arrow-${si}" class="text-gray-400 text-[10px] transition-transform shrink-0">▼</span>
+      <span class="text-sm font-medium text-gray-700 flex-1">${section.title}</span>
+      <span class="text-xs text-gray-400 group-hover:text-gray-500">${section.items.length} risorse</span>`;
+
+    // Clic sull'intestazione (non sulla checkbox) → espandi/collassa
+    header.addEventListener('click', e => {
+      if (e.target.classList.contains('section-checkbox')) return;
+      const list  = document.getElementById(`items-${si}`);
+      const arrow = document.getElementById(`arrow-${si}`);
+      const open  = list.classList.toggle('hidden');
+      arrow.style.transform = open ? 'rotate(-90deg)' : '';
+    });
+
+    // Checkbox di sezione
+    header.querySelector('.section-checkbox').addEventListener('change', e => {
+      toggleSection(si, e.target.checked);
+    });
+
+    // Lista risorse
+    const list = document.createElement('div');
+    list.id = `items-${si}`;
+    list.className = 'divide-y divide-gray-50';
+
+    section.items.forEach((item, ii) => {
+      const row = document.createElement('label');
+      row.className = 'flex items-center gap-3 px-5 py-2.5 hover:bg-gray-50 cursor-pointer ' +
+        'transition-colors group/row';
+      row.innerHTML = `
+        <input type="checkbox" ${item.type !== 'forum' ? 'checked' : ''}
+          data-section="${si}" data-item="${ii}"
+          class="item-checkbox w-4 h-4 rounded cursor-pointer shrink-0" />
+        <span class="shrink-0">${typeIcon(item.type)}</span>
+        <span class="text-sm text-gray-600 flex-1 truncate" title="${item.name}">${item.name}</span>
+        ${typeBadge(item.type)}`;
+      row.querySelector('.item-checkbox').addEventListener('change', () => syncSectionCheckbox(si));
+      list.appendChild(row);
+    });
+
+    const wrapper = document.createElement('div');
+    wrapper.append(header, list);
+    container.appendChild(wrapper);
+  });
+
+  updateDownloadBtn();
+}
+
+function toggleSection(si, checked) {
+  document.querySelectorAll(`.item-checkbox[data-section="${si}"]`)
+    .forEach(cb => { cb.checked = checked; });
+  updateDownloadBtn();
+}
+
+function syncSectionCheckbox(si) {
+  const all     = document.querySelectorAll(`.item-checkbox[data-section="${si}"]`);
+  const checked = document.querySelectorAll(`.item-checkbox[data-section="${si}"]:checked`);
+  const secCb   = document.querySelector(`.section-checkbox[data-section="${si}"]`);
+  if (secCb) {
+    secCb.indeterminate = checked.length > 0 && checked.length < all.length;
+    secCb.checked = checked.length === all.length;
+  }
+  updateDownloadBtn();
+}
+
+function selectAll(val) {
+  document.querySelectorAll('.item-checkbox, .section-checkbox').forEach(cb => {
+    cb.checked = val;
+    cb.indeterminate = false;
+  });
+  updateDownloadBtn();
+}
+
+function updateDownloadBtn() {
+  const n = document.querySelectorAll('.item-checkbox:checked').length;
+  document.getElementById('download-btn-text').textContent =
+    `Scarica ${n} ${n === 1 ? 'risorsa' : 'risorse'} selezionate`;
+}
+
+// ── Step 3: download ────────────────────────────────────────────
+
+async function startDownload() {
+  const selected = [];
+  document.querySelectorAll('.item-checkbox:checked').forEach(cb => {
+    const si   = parseInt(cb.dataset.section);
+    const ii   = parseInt(cb.dataset.item);
+    const item = courseData[si].items[ii];
+    selected.push({ ...item, section: courseData[si].title });
+  });
+
+  if (!selected.length) { alert('Seleziona almeno una risorsa.'); return; }
+
+  // Reset log
+  document.getElementById('log').innerHTML = '';
+  document.getElementById('progress-bar').style.width = '0%';
+  document.getElementById('progress-pct').textContent = '0%';
+  document.getElementById('progress-label').textContent = 'Avvio…';
+  document.getElementById('step3-title').textContent = 'Download in corso…';
+  hide('zip-section');
+
+  show('step-progress');
+  document.getElementById('step-progress').scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  const res  = await fetch('/api/download', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ moodleSession: currentMoodleSession, items: selected }),
+  });
+  const data = await res.json();
+  currentSessionId = data.sessionId;
+
+  // SSE – progresso in tempo reale
+  const es  = new EventSource(`/api/progress/${currentSessionId}`);
+  const log = document.getElementById('log');
+  const bar = document.getElementById('progress-bar');
+  const pct = document.getElementById('progress-pct');
+  const lbl = document.getElementById('progress-label');
+
+  es.onmessage = e => {
+    const msg = JSON.parse(e.data);
+    if (msg.type === 'ping') return;
+
+    if (msg.percent !== undefined) {
+      bar.style.width = msg.percent + '%';
+      pct.textContent = msg.percent + '%';
+    }
+    if (msg.message) {
+      lbl.textContent = msg.message;
+      appendLog(log, msg.message, msg.type);
+    }
+
+    if (msg.type === 'done') {
+      es.close();
+      document.getElementById('step3-title').textContent = 'Download completato ✓';
+      document.getElementById('done-text').textContent = msg.message;
+      document.getElementById('zip-link').href = `/api/zip/${currentSessionId}`;
+      show('zip-section');
+    }
+    if (msg.type === 'error') {
+      es.close();
+      document.getElementById('step3-title').textContent = 'Errore durante il download';
+      appendLog(log, '❌ ' + msg.message, 'error');
+    }
+  };
+  es.onerror = () => es.close();
+}
+
+function appendLog(container, text, type) {
+  const line = document.createElement('div');
+  line.className = {
+    file_ok:  'text-green-600',
+    file_err: 'text-red-500',
+    error:    'text-red-600 font-medium',
+    status:   'text-blue-600 font-medium',
+    done:     'text-green-700 font-semibold',
+  }[type] ?? 'text-gray-500';
+  line.textContent = text;
+  container.appendChild(line);
+  container.scrollTop = container.scrollHeight;
+}
+
+// ── reset ───────────────────────────────────────────────────────
+
+function reset() {
+  hide('step-preview');
+  hide('step-progress');
+  hide('zip-section');
+  courseData       = null;
+  currentSessionId = '';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ── Enter key ───────────────────────────────────────────────────
+
+document.addEventListener('DOMContentLoaded', () => {
+  ['moodle-session', 'course-url'].forEach(id => {
+    document.getElementById(id).addEventListener('keydown', e => {
+      if (e.key === 'Enter') analyze();
+    });
+  });
+});
+</script>
+</body>
+</html>
