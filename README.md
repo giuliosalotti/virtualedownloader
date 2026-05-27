@@ -1,127 +1,126 @@
-# Virtuale UniBO — Downloader
+# Virtuale UniBO Downloader
 
-App desktop per scaricare automaticamente i materiali di qualsiasi corso su [virtuale.unibo.it](https://virtuale.unibo.it), organizzati in cartelle per sezione.
-
----
-
-## Funzionalità
-
-- Analizza la pagina di qualsiasi corso su Virtuale in tempo reale
-- Scarica tutti i file (PDF, PPTX, XLSX, DOCX, MP3, ZIP…)
-- Entra nelle **Cartelle** Moodle e ne scarica il contenuto
-- Salva i **link URL** come file `.url` apribili con un doppio click
-- Organizza tutto in **cartelle numerate** per sezione
-- Salta i file già scaricati (riprendibile in caso di interruzione)
-- Interfaccia grafica con barra di progresso e log in tempo reale
+📚 Web app to bulk-download course materials from [virtuale.unibo.it](https://virtuale.unibo.it) — paste your MoodleSession cookie, select the resources you need, and download everything as a ZIP.
 
 ---
 
-## Requisiti
+## Features
 
-- Python **3.10** o superiore
-- Le librerie elencate in `requirements.txt` (tkinter è già incluso in Python)
+- **Course analysis** — parses any course page and lists all sections and resources
+- **Selective download** — check/uncheck individual files or entire sections before downloading
+- **Supported resource types**: files (PDF, PPTX, XLSX, DOCX, MP4, …), Moodle folders, external URL shortcuts
+- **Real-time progress** — live log and progress bar via Server-Sent Events
+- **One-click ZIP** — all downloaded files are packaged into a single archive, organized by section
+- Skips already-downloaded files to allow resuming interrupted sessions
 
 ---
 
-## Installazione
+## Requirements
+
+- Python **3.10+**
+- Dependencies listed in `requirements.txt` (`requests`, `beautifulsoup4`, `flask`)
+
+---
+
+## Installation
 
 ```bash
-# 1. Clona o scarica il progetto nella tua cartella
-cd virtuale-downloader
+# 1. Clone the repository
+git clone https://github.com/your-username/virtualeDownloader.git
+cd virtualeDownloader
 
-# 2. Crea un ambiente virtuale
+# 2. Create a virtual environment
 python -m venv venv
 
-# 3. Attivalo
+# 3. Activate it
 source venv/bin/activate        # macOS / Linux
 venv\Scripts\activate           # Windows
 
-# 4. Installa le dipendenze
+# 4. Install dependencies
 pip install -r requirements.txt
 ```
 
 ---
 
-## Avvio
+## Usage
+
+### Start the server
 
 ```bash
-python virtuale_downloader.py
+python app.py
+# → http://localhost:5001
 ```
+
+Open your browser at `http://localhost:5001`.
 
 ---
 
-## Come si usa
+### Step 1 — Get your MoodleSession cookie
 
-### 1 — Recupera il cookie di sessione
+1. Log in to [virtuale.unibo.it](https://virtuale.unibo.it) in your browser
+2. Open DevTools with `F12`
+3. Go to **Application → Cookies → virtuale.unibo.it** (Chrome / Edge) or **Storage → Cookies** (Firefox)
+4. Copy the value of the **`MoodleSession`** cookie
 
-1. Fai login su [virtuale.unibo.it](https://virtuale.unibo.it) nel browser
-2. Apri i DevTools con `F12`
-3. Vai su **Application → Cookies → virtuale.unibo.it** (Chrome/Edge) oppure **Storage → Cookies** (Firefox)
-4. Copia il valore del cookie **`MoodleSession`**
+> ⚠️ The cookie expires after a few hours of inactivity. If you get a "session expired" error, repeat this step.
 
-> ⚠️ Il cookie scade dopo qualche ora di inattività. Se il download si interrompe con un errore di sessione, ripeti questo passaggio.
+### Step 2 — Analyze the course
 
-### 2 — Compila i campi nell'app
+Paste the cookie and the course URL (e.g. `https://virtuale.unibo.it/course/view.php?id=12345`), then click **Analyze course**. The app will fetch all sections and resources.
 
-| Campo | Esempio |
-|---|---|
-| Cookie MoodleSession | `d4f8a1b2c3e9f012...` |
-| URL del corso | `https://virtuale.unibo.it/course/view.php?id=69060` |
-| Cartella di destinazione | `/Users/yourName/BPA_Course` |
+### Step 3 — Select and download
 
-### 3 — Analizza e scarica
+Use the checkboxes to select the resources you want. You can select/deselect entire sections or individual files. Click **Download selected** to start. A live log and progress bar will appear.
 
-1. Clicca **Analizza corso** → l'app mostra le sezioni trovate e verifica il cookie
-2. Clicca **Avvia download** → parte il download con log e barra di progresso
-3. Al termine clicca **Apri cartella** per vedere i file scaricati
+### Step 4 — Save the ZIP
+
+When the download is complete, click **Download ZIP** to save the archive to your machine. Files are organized in folders named after each course section.
 
 ---
 
-## Struttura delle cartelle generate
+## Output structure
 
 ```
-BPA_Course/
-├── 00 - Introduzione/
-├── 01 - Course outline /
+virtuale_download.zip
+├── 00 - Introduction/
+├── 01 - Course outline/
 ├── 02 - Study material/
-│   ├── Reading 1 - Business performance analytics.pdf
-│   ├── Reading 2 - Business Performance Analytics.pdf
-│   └── ...
-├── 03 - Quizzes, Exercises with Solutions/
-├── 04 - Case studies (assignments)/
-│   └── Deli case/          ← sottocartella da Cartella Moodle
-│       ├── file1.pdf
-│       └── file2.xlsx
-└── ...
+│   ├── Lecture 1.pdf
+│   ├── Lecture 2.pptx
+│   └── Readings/           ← Moodle folder
+│       ├── paper1.pdf
+│       └── paper2.pdf
+└── 03 - Case studies/
+    └── Case 1 dataset.xlsx
 ```
 
 ---
 
-## File del progetto
+## Project structure
 
-| File | Descrizione |
+| File | Description |
 |---|---|
-| `virtuale_gui.py` | Interfaccia grafica (avvia questo) |
-| `virtuale_downloader_universale.py` | Versione CLI senza interfaccia |
-| `requirements.txt` | Dipendenze Python |
-| `README.md` | Questo file |
+| `app.py` | Flask backend — API routes and download logic |
+| `templates/index.html` | Frontend UI (Tailwind CSS + vanilla JS) |
+| `virtuale_downloader.py` | Original CLI version |
+| `requirements.txt` | Python dependencies |
 
 ---
 
-## Note di sicurezza
+## Security notes
 
-- Il cookie MoodleSession è equivalente a una **password temporanea**: non condividerlo e non caricarlo su repository pubblici
-- Aggiungi `.env` e file di configurazione al tuo `.gitignore` se versionii il progetto con Git
-- Lo script rispetta un ritardo di 1.5 secondi tra un download e l'altro per non sovraccaricare i server UniBO
+- The `MoodleSession` cookie is equivalent to a **temporary password** — do not share it or commit it to a public repository.
+- The server adds a short delay between requests to avoid overloading UniBO's servers.
+- The app is intended for **personal, local use only**. Do not expose it to the public internet.
 
 ---
 
-## Problemi comuni
+## Troubleshooting
 
-**"Sessione scaduta o non valida"** → rinnova il cookie MoodleSession dal browser.
+**"Session expired or invalid"** → refresh the `MoodleSession` cookie from your browser.
 
-**"Nessun file trovato"** → alcune risorse potrebbero richiedere iscrizione al corso o avere accesso limitato.
+**"No file found for resource"** → some resources may require course enrollment or have restricted access.
 
-**Il cookie non viene accettato** → assicurati di copiare solo il valore del cookie, non il nome (`MoodleSession=...` è sbagliato, copia solo la parte dopo `=`).
+**Cookie not accepted** → make sure to copy only the cookie *value*, not the name. (`MoodleSession=abc123` is wrong — copy only `abc123`).
 
-**Tkinter non trovato su Linux** → installa con `sudo apt install python3-tk`.
+**Port already in use** → change the port in `app.py` (default: `5001`) if it conflicts with another service.
