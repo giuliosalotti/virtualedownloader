@@ -4,6 +4,13 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Virtuale Downloader</title>
+  <script>
+    (function(){
+      var s = localStorage.getItem('vd-theme');
+      var dark = s === 'dark' || (!s && window.matchMedia('(prefers-color-scheme:dark)').matches);
+      document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+    })();
+  </script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -36,6 +43,35 @@
       -moz-osx-font-smoothing: grayscale;
     }
 
+    /* ── DARK MODE ───────────────────────────────── */
+    [data-theme="dark"] {
+      --bg:          #000000;
+      --card:        #1C1C1E;
+      --text-1:      #F2F2F7;
+      --text-2:      #8E8E93;
+      --text-3:      #48484A;
+      --border:      rgba(255,255,255,0.08);
+      --border-in:   #38383A;
+      --accent:      #C8102E;
+      --accent-h:    #A80D24;
+      --success:     #30D158;
+      --ok-bg:       rgba(48,209,88,0.12);
+      --info:        #0A84FF;
+      --info-bg:     rgba(10,132,255,0.10);
+      --dark:        #111113;
+    }
+    [data-theme="dark"] .navbar {
+      background: rgba(28,28,30,0.84);
+    }
+    [data-theme="dark"] .help-box kbd {
+      background: #2C2C2E;
+      border-color: rgba(255,255,255,0.10);
+      box-shadow: none;
+    }
+    [data-theme="dark"] .card-foot {
+      background: rgba(255,255,255,0.02);
+    }
+
     /* ── NAVBAR ───────────────────────────────────── */
     .navbar {
       position: sticky; top: 0; z-index: 100;
@@ -60,6 +96,13 @@
     }
     .lang-btn:hover { color:var(--text-2); }
     .lang-btn.active { color:var(--accent); }
+    .theme-btn {
+      background:none; border:none; cursor:pointer;
+      color:var(--text-3); padding:4px; border-radius:6px;
+      display:flex; align-items:center; justify-content:center;
+      transition:color .15s, background .15s;
+    }
+    .theme-btn:hover { color:var(--text-1); background:rgba(128,128,128,0.12); }
 
     /* ── LAYOUT ───────────────────────────────────── */
     main {
@@ -385,6 +428,9 @@
           <span style="color:var(--border-in);font-size:11px;user-select:none">|</span>
           <button class="lang-btn" id="btn-lang-en" onclick="setLang('en')">EN</button>
         </div>
+        <button class="theme-btn" id="btn-theme" onclick="toggleTheme()" title="Toggle theme" aria-label="Toggle dark/light mode">
+          <!-- icon swapped by JS -->
+        </button>
       </div>
     </div>
   </nav>
@@ -598,6 +644,28 @@ function setLang(l) {
   });
   updateDownloadBtn();
 }
+
+// ── tema ─────────────────────────────────────────────────────
+const MOON_SVG = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>`;
+const SUN_SVG  = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>`;
+
+function applyTheme(dark) {
+  document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+  const btn = document.getElementById('btn-theme');
+  if (btn) btn.innerHTML = dark ? SUN_SVG : MOON_SVG;
+}
+
+function toggleTheme() {
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const next = !isDark;
+  localStorage.setItem('vd-theme', next ? 'dark' : 'light');
+  applyTheme(next);
+}
+
+// Aggiorna automaticamente se l'utente cambia le impostazioni di sistema
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
+  if (!localStorage.getItem('vd-theme')) applyTheme(e.matches);
+});
 
 // ── stato ────────────────────────────────────────────────────
 let currentMoodleSession = '';
@@ -992,6 +1060,7 @@ function reset() {
 
 // ── enter key ──────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
+  applyTheme(document.documentElement.getAttribute('data-theme') === 'dark');
   setLang(lang);
   ['moodle-session', 'course-url'].forEach(id => {
     document.getElementById(id).addEventListener('keydown', e => {
