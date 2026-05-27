@@ -69,7 +69,7 @@ def filename_from_response(resp: requests.Response, fallback: str) -> str:
 
 # ── parsing del corso ────────────────────────────────────────────
 
-def parse_course(moodle_session: str, course_url: str) -> list[dict]:
+def parse_course(moodle_session: str, course_url: str) -> dict:
     sess = build_session(moodle_session)
     resp = sess.get(course_url, timeout=30)
     resp.raise_for_status()
@@ -78,6 +78,15 @@ def parse_course(moodle_session: str, course_url: str) -> list[dict]:
         raise ValueError("Sessione scaduta o non valida. Rinnova il cookie MoodleSession.")
 
     soup = BeautifulSoup(resp.text, "html.parser")
+
+    # Estrae il nome del corso dal tag <title> (formato Moodle: "Nome corso: Sito")
+    title_tag = soup.find("title")
+    if title_tag:
+        raw = title_tag.get_text(strip=True)
+        course_name = raw.split(":")[0].strip() or raw.split("|")[0].strip() or "Corso"
+    else:
+        course_name = "Corso"
+
     sections = soup.find_all("li", class_=lambda c: c and "section" in c.split())
 
     result = []
@@ -117,7 +126,7 @@ def parse_course(moodle_session: str, course_url: str) -> list[dict]:
 
         result.append({"title": title, "items": items})
 
-    return result
+    return {"sections": result, "course_name": course_name}
 
 
 # ── logica di download ───────────────────────────────────────────
@@ -282,8 +291,8 @@ def index():
 def analyze():
     body = request.get_json()
     try:
-        sections = parse_course(body["moodleSession"], body["courseUrl"])
-        return jsonify({"ok": True, "sections": sections})
+        result = parse_course(body["moodleSession"], body["courseUrl"])
+        return jsonify({"ok": True, "sections": result["sections"], "courseName": result["course_name"]})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 400
 
@@ -292,7 +301,8 @@ def analyze():
 def start_download():
     body = request.get_json()
     sid = str(uuid.uuid4())
-    _sessions[sid] = {"queue": queue.Queue(), "zip_data": None}
+    zip_name = sanitize(body.get("courseName", "")) or "virtuale_download"
+    _sessions[sid] = {"queue": queue.Queue(), "zip_data": None, "zip_name": zip_name}
 
     threading.Thread(
         target=do_download,
@@ -328,13 +338,15 @@ def progress_stream(sid):
 
 @app.route("/api/zip/<sid>")
 def get_zip(sid):
-    zip_data = _sessions.get(sid, {}).get("zip_data")
+    session = _sessions.get(sid, {})
+    zip_data = session.get("zip_data")
     if not zip_data:
         return "Non disponibile", 404
+    zip_name = session.get("zip_name", "virtuale_download") + ".zip"
     return send_file(
         io.BytesIO(zip_data),
         as_attachment=True,
-        download_name="virtuale_download.zip",
+        download_name=zip_name,
         mimetype="application/zip",
     )
 
