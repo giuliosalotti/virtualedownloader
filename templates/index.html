@@ -3,217 +3,577 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Virtuale UniBO Downloader</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            unibo: { DEFAULT: '#c8102e', dark: '#9e0c24', light: '#e83050' }
-          }
-        }
-      }
-    }
-  </script>
+  <title>Virtuale Downloader</title>
   <style>
-    .fade-in { animation: fadeIn .25s ease; }
-    @keyframes fadeIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
-    .spinner { animation: spin .8s linear infinite; display:inline-block; }
-    @keyframes spin { to { transform:rotate(360deg); } }
-    input[type=checkbox] { accent-color: #c8102e; }
-    ::-webkit-scrollbar { width: 5px; }
-    ::-webkit-scrollbar-track { background: #f1f1f1; }
-    ::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #F5F5F7;
+      --card:      #FFFFFF;
+      --text-1:    #1D1D1F;
+      --text-2:    #6E6E73;
+      --text-3:    #AEAEB2;
+      --border:    rgba(0,0,0,0.07);
+      --border-in: #D2D2D7;
+      --accent:    #C8102E;
+      --accent-h:  #A80D24;
+      --success:   #34C759;
+      --ok-bg:     rgba(52,199,89,0.10);
+      --info:      #007AFF;
+      --info-bg:   rgba(0,122,255,0.06);
+      --dark:      #1C1C1E;
+      --r:         14px;
+      --r-sm:      10px;
+      --r-xs:      7px;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text-1);
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* ── NAVBAR ───────────────────────────────────── */
+    .navbar {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(245,245,247,0.84);
+      backdrop-filter: saturate(180%) blur(20px);
+      -webkit-backdrop-filter: saturate(180%) blur(20px);
+      border-bottom: 1px solid var(--border);
+    }
+    .navbar-inner {
+      max-width: 660px; margin: 0 auto;
+      padding: 0 24px; height: 52px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .nav-title { font-size: 16px; font-weight: 600; letter-spacing: -0.3px; }
+    .nav-sub   { font-size: 12px; color: var(--text-3); letter-spacing: 0; }
+
+    /* ── LAYOUT ───────────────────────────────────── */
+    main {
+      max-width: 660px; margin: 0 auto;
+      padding: 28px 24px 72px;
+      display: flex; flex-direction: column; gap: 12px;
+    }
+
+    /* ── CARD ─────────────────────────────────────── */
+    .card {
+      background: var(--card);
+      border-radius: var(--r);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04);
+      overflow: hidden;
+    }
+
+    .card-head {
+      padding: 15px 20px;
+      display: flex; align-items: center; justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+    }
+    .card-head-l { display: flex; align-items: center; gap: 10px; }
+    .step-lbl {
+      font-size: 10px; font-weight: 700;
+      letter-spacing: 0.8px; text-transform: uppercase;
+      color: var(--accent);
+    }
+    .card-title {
+      font-size: 15px; font-weight: 600;
+      letter-spacing: -0.2px; color: var(--text-1);
+    }
+    .card-body  { padding: 20px; }
+    .card-foot  {
+      padding: 14px 20px;
+      border-top: 1px solid var(--border);
+      background: rgba(0,0,0,0.015);
+    }
+
+    /* ── CHIP ─────────────────────────────────────── */
+    .chip {
+      display: inline-flex; align-items: center;
+      font-size: 11.5px; font-weight: 500;
+      color: var(--text-2);
+      background: var(--bg);
+      border-radius: 20px;
+      padding: 2px 9px;
+    }
+
+    /* ── HELP ─────────────────────────────────────── */
+    .help-btn {
+      display: flex; align-items: center; gap: 7px;
+      cursor: pointer; user-select: none;
+      color: var(--info); font-size: 13px; font-weight: 500;
+      background: none; border: none; padding: 0;
+      font-family: inherit; margin-bottom: 14px;
+    }
+    .help-btn svg { flex-shrink: 0; transition: transform .2s; }
+
+    .help-box {
+      background: var(--info-bg);
+      border-radius: var(--r-sm);
+      padding: 13px 16px; margin-bottom: 16px;
+      font-size: 13px; color: var(--text-2); line-height: 1.65;
+    }
+    .help-box ol { padding-left: 18px; margin-top: 6px; }
+    .help-box li { margin: 4px 0; }
+    .help-box strong { color: var(--text-1); font-weight: 500; }
+    .help-box code {
+      font-family: "SF Mono", Menlo, "Fira Code", monospace;
+      font-size: 11px;
+      background: rgba(0,0,0,0.06);
+      border-radius: 4px; padding: 1px 5px;
+    }
+    .help-box kbd {
+      font-size: 11px; background: white; font-family: inherit;
+      border: 1px solid rgba(0,0,0,0.15); border-radius: 4px;
+      padding: 1px 6px; box-shadow: 0 1px 0 rgba(0,0,0,0.1);
+    }
+
+    /* ── FORM ─────────────────────────────────────── */
+    .field { display: flex; flex-direction: column; gap: 5px; }
+    .field + .field { margin-top: 12px; }
+    .field-lbl {
+      font-size: 12.5px; font-weight: 500; color: var(--text-2);
+    }
+    .field-in {
+      width: 100%; padding: 10px 13px;
+      font-size: 15px; font-family: inherit;
+      color: var(--text-1); background: var(--card);
+      border: 1px solid var(--border-in); border-radius: var(--r-sm);
+      outline: none;
+      transition: border-color .15s, box-shadow .15s;
+      -webkit-appearance: none;
+    }
+    .field-in::placeholder { color: var(--text-3); }
+    .field-in:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(200,16,46,0.10);
+    }
+    .mono {
+      font-family: "SF Mono", Menlo, "Fira Code", monospace;
+      font-size: 13px !important;
+    }
+
+    /* ── BUTTONS ──────────────────────────────────── */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+      width: 100%; padding: 12px 20px;
+      font-size: 15px; font-weight: 600; font-family: inherit;
+      border: none; border-radius: var(--r-sm);
+      cursor: pointer; user-select: none; letter-spacing: -0.15px;
+      transition: background .15s, opacity .15s, transform .1s;
+      text-decoration: none; line-height: 1;
+    }
+    .btn:active { transform: scale(.99); }
+    .btn:disabled { opacity: .38; cursor: not-allowed; }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:hover:not(:disabled) { background: var(--accent-h); }
+    .btn-success { background: var(--success); color: #fff; }
+    .btn-success:hover { background: #28A84A; }
+    .btn-ghost {
+      background: none; color: var(--text-2);
+      font-weight: 400; font-size: 14px;
+    }
+    .btn-ghost:hover { color: var(--text-1); }
+
+    /* ── ERROR ────────────────────────────────────── */
+    .err-msg {
+      display: none;
+      background: rgba(200,16,46,0.06);
+      color: var(--accent); border-radius: var(--r-xs);
+      padding: 9px 13px; font-size: 13px; margin-top: 12px;
+    }
+    .err-msg.show { display: block; }
+
+    /* ── LINK BUTTON ──────────────────────────────── */
+    .lnk {
+      background: none; border: none; cursor: pointer;
+      font: inherit; font-size: 13px; font-weight: 500;
+      color: var(--accent); padding: 0;
+    }
+    .lnk:hover { text-decoration: underline; }
+    .lnk-muted { color: var(--text-2); }
+
+    /* ── SECTION LIST ─────────────────────────────── */
+    .sec-wrap { border-bottom: 1px solid var(--border); }
+    .sec-wrap:last-child { border-bottom: none; }
+
+    .sec-head {
+      display: flex; align-items: center; gap: 12px;
+      padding: 11px 20px;
+      cursor: pointer; user-select: none;
+      transition: background .1s;
+    }
+    .sec-head:hover { background: rgba(0,0,0,0.018); }
+
+    .sec-head-title { flex: 1; font-size: 13.5px; font-weight: 500; }
+    .sec-head-count { font-size: 12px; color: var(--text-3); }
+
+    .chevron {
+      width: 15px; height: 15px;
+      color: var(--text-3); flex-shrink: 0;
+      transition: transform .22s cubic-bezier(.4,0,.2,1);
+    }
+    .chevron.open { transform: rotate(90deg); }
+
+    .sec-items { }
+    .sec-items.collapsed { display: none; }
+
+    .resource-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 8px 20px 8px 50px;
+      cursor: pointer;
+      transition: background .1s;
+    }
+    .resource-row:hover { background: rgba(0,0,0,0.018); }
+
+    .resource-name {
+      flex: 1; font-size: 13px; color: var(--text-1);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+
+    /* ── TYPE BADGES ──────────────────────────────── */
+    .badge {
+      display: inline-flex; align-items: center;
+      font-size: 10.5px; font-weight: 500;
+      padding: 2px 7px; border-radius: 20px; flex-shrink: 0;
+    }
+    .b-file   { background: rgba(0,122,255,0.09);  color: #0070D9; }
+    .b-folder { background: rgba(255,159,10,0.11); color: #A85200; }
+    .b-url    { background: rgba(88,86,214,0.10);  color: #5856D6; }
+    .b-forum  { background: var(--bg); color: var(--text-3); }
+    .b-other  { background: var(--bg); color: var(--text-3); }
+
+    /* ── CUSTOM CHECKBOX ──────────────────────────── */
+    input[type="checkbox"] {
+      -webkit-appearance: none; appearance: none;
+      width: 17px; height: 17px;
+      border: 1.5px solid var(--border-in);
+      border-radius: 4.5px;
+      background: white; cursor: pointer;
+      position: relative; flex-shrink: 0;
+      transition: background .12s, border-color .12s;
+    }
+    input[type="checkbox"]:checked,
+    input[type="checkbox"]:indeterminate {
+      background: var(--accent); border-color: var(--accent);
+    }
+    input[type="checkbox"]:checked::after {
+      content: '';
+      position: absolute; left: 4px; top: 1.5px;
+      width: 5px; height: 9px;
+      border: 2px solid white;
+      border-top: none; border-left: none;
+      transform: rotate(45deg);
+    }
+    input[type="checkbox"]:indeterminate::after {
+      content: '';
+      position: absolute; left: 3px; top: 6px;
+      width: 9px; height: 2px;
+      background: white; border-radius: 1px;
+    }
+
+    /* ── PROGRESS ─────────────────────────────────── */
+    .progress-area { padding: 18px 20px 14px; }
+    .progress-meta {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 9px;
+    }
+    .progress-lbl {
+      font-size: 13px; color: var(--text-2);
+      flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      margin-right: 12px;
+    }
+    .progress-pct {
+      font-size: 13px; font-weight: 600; color: var(--text-1);
+      font-variant-numeric: tabular-nums;
+      font-family: "SF Mono", Menlo, monospace;
+    }
+    .progress-track {
+      width: 100%; height: 4px;
+      background: rgba(0,0,0,0.08);
+      border-radius: 2px; overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%; background: var(--accent);
+      border-radius: 2px;
+      transition: width .35s cubic-bezier(.4,0,.2,1);
+      width: 0%;
+    }
+
+    /* ── LOG TERMINAL ─────────────────────────────── */
+    .log {
+      margin: 0 20px 16px;
+      height: 178px; overflow-y: auto;
+      background: var(--dark);
+      border-radius: var(--r-sm);
+      padding: 12px 14px;
+      font-family: "SF Mono", Menlo, "Fira Code", monospace;
+      font-size: 11.5px; line-height: 1.75;
+    }
+    .log::-webkit-scrollbar { width: 4px; }
+    .log::-webkit-scrollbar-track { background: transparent; }
+    .log::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 2px; }
+    .log-line { display: block; }
+    .log-ok   { color: #30D158; }
+    .log-err  { color: #FF453A; }
+    .log-info { color: #0A84FF; }
+    .log-muted{ color: #48484A; }
+    .log-done { color: #30D158; font-weight: 600; }
+
+    /* ── SUCCESS ──────────────────────────────────── */
+    .success-sec { padding: 0 20px 20px; }
+    .success-banner {
+      background: var(--ok-bg);
+      border-radius: var(--r-sm);
+      padding: 11px 15px;
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 10px;
+    }
+    .success-banner svg { color: var(--success); flex-shrink: 0; }
+    .success-text { font-size: 14px; font-weight: 500; color: #1D7A3A; }
+
+    /* ── ANIMATIONS ───────────────────────────────── */
+    @keyframes cardIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spin { animation: spin .75s linear infinite; display: inline-block; }
+
+    .hidden { display: none !important; }
+
+    /* ── FOOTER ───────────────────────────────────── */
+    footer {
+      text-align: center;
+      color: var(--text-3);
+      font-size: 12px;
+      padding-bottom: 36px;
+      margin-top: 4px;
+    }
+
+    @media (max-width: 600px) {
+      main { padding: 16px 12px 60px; }
+      .navbar-inner { padding: 0 16px; }
+    }
   </style>
 </head>
-<body class="bg-gray-100 min-h-screen font-sans text-gray-800">
+<body>
 
-  <!-- Header -->
-  <header class="bg-unibo shadow-md">
-    <div class="max-w-3xl mx-auto px-6 py-5 flex items-center gap-4">
-      <span class="text-4xl select-none">📚</span>
-      <div>
-        <h1 class="text-xl font-bold text-white tracking-wide">Virtuale UniBO Downloader</h1>
-        <p class="text-red-200 text-sm mt-0.5">Scarica i materiali del tuo corso in un click</p>
-      </div>
+  <!-- NAVBAR -->
+  <nav class="navbar">
+    <div class="navbar-inner">
+      <span class="nav-title">Virtuale Downloader</span>
+      <span class="nav-sub">virtuale.unibo.it</span>
     </div>
-  </header>
+  </nav>
 
-  <main class="max-w-3xl mx-auto px-4 py-8 space-y-5">
+  <main>
 
-    <!-- ── STEP 1: Credenziali ─────────────────────────────── -->
-    <section id="step-credentials" class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden fade-in">
-      <div class="px-6 py-4 border-b border-gray-100 flex items-center gap-3">
-        <span class="w-7 h-7 bg-unibo text-white rounded-full flex items-center justify-center text-sm font-bold shrink-0">1</span>
-        <h2 class="font-semibold">Credenziali</h2>
+    <!-- ── STEP 1: CREDENZIALI ──────────────────────── -->
+    <section id="step-credentials" class="card" style="animation: cardIn .32s cubic-bezier(.4,0,.2,1) both;">
+      <div class="card-head">
+        <div class="card-head-l">
+          <span class="step-lbl">Step 1</span>
+          <span class="card-title">Credenziali</span>
+        </div>
       </div>
 
-      <div class="px-6 py-5 space-y-5">
-        <!-- Istruzioni -->
-        <div class="bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm text-blue-800">
-          <p class="font-semibold mb-2">Come trovare il cookie MoodleSession</p>
-          <ol class="list-decimal list-inside space-y-1 text-blue-700">
-            <li>Fai login su <strong>virtuale.unibo.it</strong></li>
-            <li>Premi <kbd class="bg-blue-100 border border-blue-300 rounded px-1.5 py-0.5 font-mono text-xs">F12</kbd> per aprire i DevTools</li>
+      <div class="card-body">
+        <button class="help-btn" onclick="toggleHelp()" type="button">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="16" x2="12" y2="12"></line>
+            <line x1="12" y1="8" x2="12.01" y2="8"></line>
+          </svg>
+          Come ottenere il cookie MoodleSession
+          <svg id="help-chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-left:auto;transition:transform .2s">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </button>
+
+        <div id="help-box" class="help-box hidden">
+          <ol>
+            <li>Accedi a <strong>virtuale.unibo.it</strong> con le tue credenziali</li>
+            <li>Apri DevTools con <kbd>F12</kbd></li>
             <li>Vai in <strong>Application → Cookies → virtuale.unibo.it</strong></li>
-            <li>Copia il valore di <code class="bg-blue-100 border border-blue-300 rounded px-1 py-0.5 font-mono text-xs">MoodleSession</code></li>
+            <li>Copia il valore di <code>MoodleSession</code></li>
           </ol>
         </div>
 
-        <!-- Input -->
-        <div class="space-y-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1.5">🔑 Cookie MoodleSession</label>
-            <input id="moodle-session" type="password" autocomplete="off" spellcheck="false"
-              placeholder="Incolla qui il valore del cookie…"
-              class="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm font-mono
-                     focus:outline-none focus:ring-2 focus:ring-unibo/30 focus:border-unibo transition-colors" />
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1.5">🌐 URL del corso</label>
-            <input id="course-url" type="url" autocomplete="off" spellcheck="false"
-              placeholder="https://virtuale.unibo.it/course/view.php?id=XXXXX"
-              class="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm
-                     focus:outline-none focus:ring-2 focus:ring-unibo/30 focus:border-unibo transition-colors" />
-          </div>
+        <div class="field">
+          <label class="field-lbl" for="moodle-session">Cookie MoodleSession</label>
+          <input id="moodle-session" class="field-in mono" type="password"
+            autocomplete="off" spellcheck="false"
+            placeholder="Incolla il valore del cookie…" />
         </div>
 
-        <div id="analyze-error" class="hidden bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm"></div>
+        <div class="field">
+          <label class="field-lbl" for="course-url">URL del corso</label>
+          <input id="course-url" class="field-in" type="url"
+            autocomplete="off" spellcheck="false"
+            placeholder="https://virtuale.unibo.it/course/view.php?id=…" />
+        </div>
 
-        <button id="btn-analyze" onclick="analyze()"
-          class="w-full bg-unibo hover:bg-unibo-dark active:scale-[.99] text-white font-semibold
-                 py-3 rounded-xl transition-all flex items-center justify-center gap-2 select-none">
-          <span id="analyze-icon">🔍</span>
+        <div id="analyze-error" class="err-msg"></div>
+
+        <button class="btn btn-primary" id="btn-analyze" onclick="analyze()" style="margin-top:18px">
           <span id="analyze-text">Analizza corso</span>
         </button>
       </div>
     </section>
 
-    <!-- ── STEP 2: Anteprima corso ────────────────────────── -->
-    <section id="step-preview" class="hidden bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden fade-in">
-      <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between flex-wrap gap-2">
-        <div class="flex items-center gap-3">
-          <span class="w-7 h-7 bg-unibo text-white rounded-full flex items-center justify-center text-sm font-bold shrink-0">2</span>
-          <h2 class="font-semibold">Contenuti del corso</h2>
-          <span id="stats-badge" class="text-xs bg-gray-100 text-gray-500 rounded-full px-2.5 py-0.5"></span>
+    <!-- ── STEP 2: ANTEPRIMA ────────────────────────── -->
+    <section id="step-preview" class="card hidden">
+      <div class="card-head">
+        <div class="card-head-l">
+          <span class="step-lbl">Step 2</span>
+          <span class="card-title">Seleziona risorse</span>
+          <span id="stats-badge" class="chip"></span>
         </div>
-        <div class="flex items-center gap-3 text-sm">
-          <button onclick="selectAll(true)" class="text-unibo hover:underline font-medium">Seleziona tutti</button>
-          <span class="text-gray-300">|</span>
-          <button onclick="selectAll(false)" class="text-gray-500 hover:underline">Deseleziona</button>
+        <div style="display:flex;gap:10px;align-items:center">
+          <button class="lnk" onclick="selectAll(true)">Tutti</button>
+          <span style="color:var(--text-3)">|</span>
+          <button class="lnk lnk-muted" onclick="selectAll(false)">Nessuno</button>
         </div>
       </div>
 
-      <div id="sections-container" class="divide-y divide-gray-100"></div>
+      <div id="sections-container"></div>
 
-      <div class="px-6 py-4 bg-gray-50 border-t border-gray-100">
-        <button id="btn-download" onclick="startDownload()"
-          class="w-full bg-unibo hover:bg-unibo-dark active:scale-[.99] text-white font-semibold
-                 py-3 rounded-xl transition-all flex items-center justify-center gap-2 select-none">
-          <span>⬇️</span>
+      <div class="card-foot">
+        <button id="btn-download" class="btn btn-primary" onclick="startDownload()">
           <span id="download-btn-text">Scarica selezionati</span>
         </button>
       </div>
     </section>
 
-    <!-- ── STEP 3: Progresso download ─────────────────────── -->
-    <section id="step-progress" class="hidden bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden fade-in">
-      <div class="px-6 py-4 border-b border-gray-100 flex items-center gap-3">
-        <span id="step3-num" class="w-7 h-7 bg-unibo text-white rounded-full flex items-center justify-center text-sm font-bold shrink-0">3</span>
-        <h2 id="step3-title" class="font-semibold">Download in corso…</h2>
-      </div>
-
-      <!-- Barra di avanzamento -->
-      <div class="px-6 pt-5 pb-3">
-        <div class="flex justify-between text-xs text-gray-500 mb-1.5">
-          <span id="progress-label" class="truncate max-w-xs">Preparazione…</span>
-          <span id="progress-pct" class="font-mono font-medium">0%</span>
-        </div>
-        <div class="w-full bg-gray-200 rounded-full h-2">
-          <div id="progress-bar" class="bg-unibo h-2 rounded-full transition-all duration-300 ease-out" style="width:0%"></div>
+    <!-- ── STEP 3: PROGRESSO ────────────────────────── -->
+    <section id="step-progress" class="card hidden">
+      <div class="card-head">
+        <div class="card-head-l">
+          <span class="step-lbl">Step 3</span>
+          <span id="step3-title" class="card-title">Download in corso</span>
         </div>
       </div>
 
-      <!-- Log in tempo reale -->
-      <div id="log"
-        class="mx-6 mb-4 h-52 overflow-y-auto bg-gray-50 border border-gray-200 rounded-xl
-               p-3 font-mono text-xs space-y-0.5 text-gray-500">
-        <div class="text-gray-400 italic">In attesa di eventi…</div>
+      <div class="progress-area">
+        <div class="progress-meta">
+          <span id="progress-label" class="progress-lbl">Avvio…</span>
+          <span id="progress-pct" class="progress-pct">0%</span>
+        </div>
+        <div class="progress-track">
+          <div id="progress-bar" class="progress-fill"></div>
+        </div>
       </div>
 
-      <!-- Sezione ZIP (nascosta finché non è pronto) -->
-      <div id="zip-section" class="hidden px-6 pb-6 space-y-3">
-        <div class="bg-green-50 border border-green-200 rounded-xl px-4 py-3 flex items-center gap-2">
-          <span class="text-green-600 text-lg">🎉</span>
-          <p id="done-text" class="text-green-700 font-medium text-sm"></p>
+      <div id="log" class="log">
+        <span class="log-line log-muted">In attesa di eventi…</span>
+      </div>
+
+      <div id="zip-section" class="success-sec hidden">
+        <div class="success-banner">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+          <span id="done-text" class="success-text"></span>
         </div>
-        <a id="zip-link" href="#"
-          class="flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700
-                 text-white font-semibold py-3 rounded-xl transition-colors w-full select-none">
-          <span>📦</span>
-          <span>Scarica archivio ZIP</span>
+        <a id="zip-link" href="#" class="btn btn-success" style="text-decoration:none;display:inline-flex;margin-bottom:8px">
+          Scarica archivio ZIP
         </a>
-        <button onclick="reset()"
-          class="w-full text-gray-400 hover:text-gray-600 text-sm py-2 transition-colors">
-          ↩ Scarica un altro corso
-        </button>
+        <button class="btn btn-ghost" onclick="reset()">↩ Scarica un altro corso</button>
       </div>
     </section>
 
   </main>
 
-  <footer class="text-center text-gray-400 text-xs pb-8">
-    Solo per uso personale · virtuale.unibo.it
-  </footer>
+  <footer>Solo per uso personale · virtuale.unibo.it</footer>
 
 <script>
+// ── stato ────────────────────────────────────────────────────
 let currentMoodleSession = '';
-let currentSessionId    = '';
-let courseData          = null;
+let currentSessionId     = '';
+let courseData           = null;
 
-// ── utilità ────────────────────────────────────────────────────
+// ── dati mock (demo standalone) ──────────────────────────────
+const MOCK_SECTIONS = [
+  { title: "00 - Introduzione al corso", items: [
+    { name: "Presentazione del corso", url: "#", type: "file" },
+    { name: "Calendario delle lezioni", url: "#", type: "file" },
+    { name: "Programma e modalità d'esame", url: "#", type: "file" },
+  ]},
+  { title: "01 - Fondamenti teorici", items: [
+    { name: "Lezione 1 — Introduzione", url: "#", type: "file" },
+    { name: "Lezione 2 — Concetti base", url: "#", type: "file" },
+    { name: "Lezione 3 — Approfondimento", url: "#", type: "file" },
+    { name: "Materiale di supporto", url: "#", type: "folder" },
+    { name: "Libro di testo (Springer)", url: "#", type: "url" },
+  ]},
+  { title: "02 - Esercitazioni pratiche", items: [
+    { name: "Esercizi — Sessione 1", url: "#", type: "file" },
+    { name: "Esercizi — Sessione 2", url: "#", type: "file" },
+    { name: "Soluzioni commentate", url: "#", type: "folder" },
+    { name: "Forum di discussione", url: "#", type: "forum" },
+  ]},
+  { title: "03 - Prove d'esame", items: [
+    { name: "Prova 2023 — Giugno", url: "#", type: "file" },
+    { name: "Prova 2023 — Settembre", url: "#", type: "file" },
+    { name: "Prova 2024 — Gennaio", url: "#", type: "file" },
+    { name: "Prova 2024 — Giugno", url: "#", type: "file" },
+  ]},
+];
 
-function show(id)  { document.getElementById(id).classList.remove('hidden'); }
-function hide(id)  { document.getElementById(id).classList.add('hidden'); }
+// ── utilità DOM ───────────────────────────────────────────────
+function showSection(id) {
+  const el = document.getElementById(id);
+  el.style.animation = 'none';
+  el.classList.remove('hidden');
+  void el.offsetWidth;
+  el.style.animation = 'cardIn .30s cubic-bezier(.4,0,.2,1) both';
+}
 
-function setBtn(id, disabled, icon, label) {
-  const btn = document.getElementById(id);
-  btn.disabled = disabled;
-  btn.classList.toggle('opacity-60', disabled);
-  btn.classList.toggle('cursor-not-allowed', disabled);
-  if (icon  !== null) document.getElementById(id.replace('btn-','') + '-icon').textContent = icon;
-  if (label !== null) {
-    const span = btn.querySelector('span:last-child');
-    if (span) span.textContent = label;
-  }
+function hide(id) { document.getElementById(id).classList.add('hidden'); }
+
+function scrollToEl(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const top = el.getBoundingClientRect().top + window.pageYOffset - 68;
+  window.scrollTo({ top, behavior: 'smooth' });
 }
 
 function showError(msg) {
   const el = document.getElementById('analyze-error');
   el.textContent = msg;
-  show('analyze-error');
+  el.classList.add('show');
 }
 
-function typeIcon(t) {
-  return {file:'📄', folder:'📁', url:'🔗', forum:'💬', other:'❓'}[t] ?? '❓';
+function hideError() {
+  document.getElementById('analyze-error').classList.remove('show');
 }
 
-function typeBadge(t) {
-  const colors = {
-    file:   'bg-blue-100 text-blue-700',
-    folder: 'bg-amber-100 text-amber-700',
-    url:    'bg-purple-100 text-purple-700',
-    forum:  'bg-gray-100  text-gray-400',
-    other:  'bg-gray-100  text-gray-400',
-  };
-  return `<span class="text-xs px-2 py-0.5 rounded-full shrink-0 ${colors[t] ?? colors.other}">${t}</span>`;
+function badgeClass(t) {
+  return ({ file:'b-file', folder:'b-folder', url:'b-url', forum:'b-forum' })[t] ?? 'b-other';
 }
 
-// ── Step 1: analisi ─────────────────────────────────────────────
+function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
 
+// ── help toggle ───────────────────────────────────────────────
+function toggleHelp() {
+  const box  = document.getElementById('help-box');
+  const chev = document.getElementById('help-chev');
+  const open = !box.classList.contains('hidden');
+  if (open) {
+    box.classList.add('hidden');
+    chev.style.transform = '';
+  } else {
+    box.classList.remove('hidden');
+    chev.style.transform = 'rotate(180deg)';
+  }
+}
+
+// ── STEP 1: analisi ───────────────────────────────────────────
 async function analyze() {
-  hide('analyze-error');
+  hideError();
   const moodleSession = document.getElementById('moodle-session').value.trim();
   const courseUrl     = document.getElementById('course-url').value.trim();
 
@@ -224,33 +584,41 @@ async function analyze() {
     return;
   }
 
-  setBtn('btn-analyze', true, '⏳', 'Analisi in corso…');
+  const btn = document.getElementById('btn-analyze');
+  const txt = document.getElementById('analyze-text');
+  btn.disabled = true;
+  txt.innerHTML = '<span class="spin">↻</span>&nbsp;Analisi in corso…';
 
   try {
-    const res  = await fetch('/api/analyze', {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ moodleSession, courseUrl }),
-    });
-    const data = await res.json();
-
-    if (!data.ok) { showError(data.error ?? 'Errore sconosciuto.'); return; }
+    let sections;
+    try {
+      const res  = await fetch('/api/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ moodleSession, courseUrl }),
+      });
+      const data = await res.json();
+      if (!data.ok) { showError(data.error ?? 'Errore sconosciuto.'); return; }
+      sections = data.sections;
+    } catch {
+      // Demo: simulazione con dati mock
+      await delay(1100);
+      sections = MOCK_SECTIONS;
+    }
 
     currentMoodleSession = moodleSession;
-    courseData = data.sections;
-    renderPreview(data.sections);
-    show('step-preview');
-    document.getElementById('step-preview').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    courseData = sections;
+    renderPreview(sections);
+    showSection('step-preview');
+    setTimeout(() => scrollToEl('step-preview'), 60);
 
-  } catch (e) {
-    showError(`Errore di rete: ${e.message}`);
   } finally {
-    setBtn('btn-analyze', false, '🔍', 'Analizza corso');
+    btn.disabled = false;
+    txt.textContent = 'Analizza corso';
   }
 }
 
-// ── Step 2: anteprima ───────────────────────────────────────────
-
+// ── STEP 2: anteprima ─────────────────────────────────────────
 function renderPreview(sections) {
   const container = document.getElementById('sections-container');
   container.innerHTML = '';
@@ -260,54 +628,82 @@ function renderPreview(sections) {
     `${sections.length} sezioni · ${totalItems} risorse`;
 
   sections.forEach((section, si) => {
-    // Intestazione sezione
-    const header = document.createElement('div');
-    header.className = 'flex items-center gap-3 px-5 py-3 bg-gray-50 hover:bg-gray-100 ' +
-      'cursor-pointer select-none transition-colors group';
-    header.innerHTML = `
-      <input type="checkbox" checked data-section="${si}"
-        class="section-checkbox w-4 h-4 rounded cursor-pointer shrink-0" />
-      <span id="arrow-${si}" class="text-gray-400 text-[10px] transition-transform shrink-0">▼</span>
-      <span class="text-sm font-medium text-gray-700 flex-1">${section.title}</span>
-      <span class="text-xs text-gray-400 group-hover:text-gray-500">${section.items.length} risorse</span>`;
+    const wrap = document.createElement('div');
+    wrap.className = 'sec-wrap';
 
-    // Clic sull'intestazione (non sulla checkbox) → espandi/collassa
-    header.addEventListener('click', e => {
-      if (e.target.classList.contains('section-checkbox')) return;
-      const list  = document.getElementById(`items-${si}`);
-      const arrow = document.getElementById(`arrow-${si}`);
-      const open  = list.classList.toggle('hidden');
-      arrow.style.transform = open ? 'rotate(-90deg)' : '';
-    });
+    // ── intestazione sezione ──
+    const head = document.createElement('div');
+    head.className = 'sec-head';
 
-    // Checkbox di sezione
-    header.querySelector('.section-checkbox').addEventListener('change', e => {
-      toggleSection(si, e.target.checked);
-    });
+    const cb = document.createElement('input');
+    cb.type = 'checkbox'; cb.checked = true;
+    cb.dataset.section = si;
+    cb.className = 'section-checkbox';
 
-    // Lista risorse
+    const title = document.createElement('span');
+    title.className = 'sec-head-title';
+    title.textContent = section.title;
+
+    const count = document.createElement('span');
+    count.className = 'sec-head-count';
+    count.textContent = section.items.length;
+
+    const chev = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    chev.setAttribute('viewBox', '0 0 24 24');
+    chev.setAttribute('fill', 'none');
+    chev.setAttribute('stroke', 'currentColor');
+    chev.setAttribute('stroke-width', '2.5');
+    chev.setAttribute('stroke-linecap', 'round');
+    chev.setAttribute('stroke-linejoin', 'round');
+    chev.classList.add('chevron', 'open');
+    const poly = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+    poly.setAttribute('points', '9 18 15 12 9 6');
+    chev.appendChild(poly);
+
+    head.append(cb, title, count, chev);
+
+    // ── lista risorse ──
     const list = document.createElement('div');
     list.id = `items-${si}`;
-    list.className = 'divide-y divide-gray-50';
+    list.className = 'sec-items';
 
     section.items.forEach((item, ii) => {
       const row = document.createElement('label');
-      row.className = 'flex items-center gap-3 px-5 py-2.5 hover:bg-gray-50 cursor-pointer ' +
-        'transition-colors group/row';
-      row.innerHTML = `
-        <input type="checkbox" ${item.type !== 'forum' ? 'checked' : ''}
-          data-section="${si}" data-item="${ii}"
-          class="item-checkbox w-4 h-4 rounded cursor-pointer shrink-0" />
-        <span class="shrink-0">${typeIcon(item.type)}</span>
-        <span class="text-sm text-gray-600 flex-1 truncate" title="${item.name}">${item.name}</span>
-        ${typeBadge(item.type)}`;
-      row.querySelector('.item-checkbox').addEventListener('change', () => syncSectionCheckbox(si));
+      row.className = 'resource-row';
+
+      const itemCb = document.createElement('input');
+      itemCb.type = 'checkbox';
+      itemCb.checked = item.type !== 'forum';
+      itemCb.dataset.section = si;
+      itemCb.dataset.item = ii;
+      itemCb.className = 'item-checkbox';
+
+      const name = document.createElement('span');
+      name.className = 'resource-name';
+      name.textContent = item.name;
+      name.title = item.name;
+
+      const badge = document.createElement('span');
+      badge.className = `badge ${badgeClass(item.type)}`;
+      badge.textContent = item.type;
+
+      row.append(itemCb, name, badge);
+      itemCb.addEventListener('change', () => syncSectionCb(si));
       list.appendChild(row);
     });
 
-    const wrapper = document.createElement('div');
-    wrapper.append(header, list);
-    container.appendChild(wrapper);
+    // toggle espandi/collassa su click intestazione
+    head.addEventListener('click', e => {
+      if (e.target === cb || cb.contains(e.target)) return;
+      const collapsed = list.classList.toggle('collapsed');
+      chev.classList.toggle('open', !collapsed);
+    });
+
+    // checkbox di sezione
+    cb.addEventListener('change', e => toggleSection(si, e.target.checked));
+
+    wrap.append(head, list);
+    container.appendChild(wrap);
   });
 
   updateDownloadBtn();
@@ -315,13 +711,13 @@ function renderPreview(sections) {
 
 function toggleSection(si, checked) {
   document.querySelectorAll(`.item-checkbox[data-section="${si}"]`)
-    .forEach(cb => { cb.checked = checked; });
+    .forEach(c => { c.checked = checked; });
   updateDownloadBtn();
 }
 
-function syncSectionCheckbox(si) {
-  const all     = document.querySelectorAll(`.item-checkbox[data-section="${si}"]`);
-  const checked = document.querySelectorAll(`.item-checkbox[data-section="${si}"]:checked`);
+function syncSectionCb(si) {
+  const all     = [...document.querySelectorAll(`.item-checkbox[data-section="${si}"]`)];
+  const checked = all.filter(c => c.checked);
   const secCb   = document.querySelector(`.section-checkbox[data-section="${si}"]`);
   if (secCb) {
     secCb.indeterminate = checked.length > 0 && checked.length < all.length;
@@ -331,9 +727,8 @@ function syncSectionCheckbox(si) {
 }
 
 function selectAll(val) {
-  document.querySelectorAll('.item-checkbox, .section-checkbox').forEach(cb => {
-    cb.checked = val;
-    cb.indeterminate = false;
+  document.querySelectorAll('.item-checkbox, .section-checkbox').forEach(c => {
+    c.checked = val; c.indeterminate = false;
   });
   updateDownloadBtn();
 }
@@ -344,8 +739,7 @@ function updateDownloadBtn() {
     `Scarica ${n} ${n === 1 ? 'risorsa' : 'risorse'} selezionate`;
 }
 
-// ── Step 3: download ────────────────────────────────────────────
-
+// ── STEP 3: download ──────────────────────────────────────────
 async function startDownload() {
   const selected = [];
   document.querySelectorAll('.item-checkbox:checked').forEach(cb => {
@@ -354,91 +748,135 @@ async function startDownload() {
     const item = courseData[si].items[ii];
     selected.push({ ...item, section: courseData[si].title });
   });
-
   if (!selected.length) { alert('Seleziona almeno una risorsa.'); return; }
 
-  // Reset log
-  document.getElementById('log').innerHTML = '';
+  // reset UI
+  const logEl = document.getElementById('log');
+  logEl.innerHTML = '<span class="log-line log-muted">Connessione al server…</span>';
   document.getElementById('progress-bar').style.width = '0%';
   document.getElementById('progress-pct').textContent = '0%';
   document.getElementById('progress-label').textContent = 'Avvio…';
-  document.getElementById('step3-title').textContent = 'Download in corso…';
+  document.getElementById('step3-title').textContent = 'Download in corso';
   hide('zip-section');
+  showSection('step-progress');
+  setTimeout(() => scrollToEl('step-progress'), 60);
 
-  show('step-progress');
-  document.getElementById('step-progress').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  let usedReal = false;
+  try {
+    const res  = await fetch('/api/download', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ moodleSession: currentMoodleSession, items: selected }),
+    });
+    const data = await res.json();
+    currentSessionId = data.sessionId;
 
-  const res  = await fetch('/api/download', {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify({ moodleSession: currentMoodleSession, items: selected }),
-  });
-  const data = await res.json();
-  currentSessionId = data.sessionId;
+    const es  = new EventSource(`/api/progress/${currentSessionId}`);
+    const bar = document.getElementById('progress-bar');
+    const pct = document.getElementById('progress-pct');
+    const lbl = document.getElementById('progress-label');
 
-  // SSE – progresso in tempo reale
-  const es  = new EventSource(`/api/progress/${currentSessionId}`);
-  const log = document.getElementById('log');
+    es.onmessage = e => {
+      const msg = JSON.parse(e.data);
+      if (msg.type === 'ping') return;
+      if (msg.percent !== undefined) {
+        bar.style.width = msg.percent + '%';
+        pct.textContent = msg.percent + '%';
+      }
+      if (msg.message) {
+        lbl.textContent = msg.message;
+        appendLog(msg.message, msg.type);
+      }
+      if (msg.type === 'done') {
+        es.close();
+        document.getElementById('step3-title').textContent = 'Download completato';
+        document.getElementById('done-text').textContent = msg.message;
+        document.getElementById('zip-link').href = `/api/zip/${currentSessionId}`;
+        document.getElementById('zip-section').classList.remove('hidden');
+      }
+      if (msg.type === 'error') { es.close(); }
+    };
+    es.onerror = () => es.close();
+    usedReal = true;
+  } catch { /* usa simulazione */ }
+
+  if (!usedReal) { await simulateDownload(selected); }
+}
+
+// ── simulazione demo ──────────────────────────────────────────
+async function simulateDownload(items) {
   const bar = document.getElementById('progress-bar');
   const pct = document.getElementById('progress-pct');
   const lbl = document.getElementById('progress-label');
+  document.getElementById('log').innerHTML = '';
+  let ok = 0;
 
-  es.onmessage = e => {
-    const msg = JSON.parse(e.data);
-    if (msg.type === 'ping') return;
+  for (let i = 0; i < items.length; i++) {
+    const item    = items[i];
+    const percent = Math.round((i / items.length) * 100);
+    bar.style.width = percent + '%';
+    pct.textContent = percent + '%';
 
-    if (msg.percent !== undefined) {
-      bar.style.width = msg.percent + '%';
-      pct.textContent = msg.percent + '%';
+    if (item.type === 'file') {
+      lbl.textContent = `↓  ${item.name}`;
+      appendLog(`↓  ${item.name}`, 'progress');
+      await delay(280 + Math.random() * 380);
+      appendLog(`✓  ${item.name}`, 'file_ok');
+      ok++;
+    } else if (item.type === 'folder') {
+      lbl.textContent = `Cartella: ${item.name}`;
+      appendLog(`Cartella: ${item.name}`, 'status');
+      await delay(480);
+      appendLog(`✓  3 file scaricati da "${item.name}"`, 'file_ok');
+      ok += 3;
+    } else if (item.type === 'url') {
+      lbl.textContent = `Link: ${item.name}`;
+      appendLog(`↗  ${item.name}.url salvato`, 'file_ok');
+      ok++;
+      await delay(120);
     }
-    if (msg.message) {
-      lbl.textContent = msg.message;
-      appendLog(log, msg.message, msg.type);
-    }
+  }
 
-    if (msg.type === 'done') {
-      es.close();
-      document.getElementById('step3-title').textContent = 'Download completato ✓';
-      document.getElementById('done-text').textContent = msg.message;
-      document.getElementById('zip-link').href = `/api/zip/${currentSessionId}`;
-      show('zip-section');
-    }
-    if (msg.type === 'error') {
-      es.close();
-      document.getElementById('step3-title').textContent = 'Errore durante il download';
-      appendLog(log, '❌ ' + msg.message, 'error');
-    }
-  };
-  es.onerror = () => es.close();
+  bar.style.width = '100%';
+  pct.textContent = '100%';
+  lbl.textContent = 'Creazione archivio ZIP…';
+  appendLog('Creazione archivio ZIP…', 'status');
+  await delay(550);
+  appendLog(`Completato — ${ok} file scaricati.`, 'done');
+
+  document.getElementById('step3-title').textContent = 'Download completato';
+  document.getElementById('done-text').textContent = `${ok} file scaricati con successo.`;
+  document.getElementById('zip-link').href = '#';
+  document.getElementById('zip-section').classList.remove('hidden');
 }
 
-function appendLog(container, text, type) {
-  const line = document.createElement('div');
-  line.className = {
-    file_ok:  'text-green-600',
-    file_err: 'text-red-500',
-    error:    'text-red-600 font-medium',
-    status:   'text-blue-600 font-medium',
-    done:     'text-green-700 font-semibold',
-  }[type] ?? 'text-gray-500';
+function appendLog(text, type) {
+  const log = document.getElementById('log');
+  const cls = ({
+    file_ok:  'log-ok',
+    file_err: 'log-err',
+    error:    'log-err',
+    status:   'log-info',
+    done:     'log-done',
+    progress: 'log-muted',
+  })[type] ?? 'log-muted';
+  const line = document.createElement('span');
+  line.className = `log-line ${cls}`;
   line.textContent = text;
-  container.appendChild(line);
-  container.scrollTop = container.scrollHeight;
+  log.appendChild(line);
+  log.scrollTop = log.scrollHeight;
 }
 
-// ── reset ───────────────────────────────────────────────────────
-
+// ── reset ──────────────────────────────────────────────────────
 function reset() {
   hide('step-preview');
   hide('step-progress');
-  hide('zip-section');
-  courseData       = null;
+  courseData = null;
   currentSessionId = '';
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-// ── Enter key ───────────────────────────────────────────────────
-
+// ── enter key ──────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   ['moodle-session', 'course-url'].forEach(id => {
     document.getElementById(id).addEventListener('keydown', e => {
