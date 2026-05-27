@@ -51,6 +51,15 @@
     }
     .nav-title { font-size: 16px; font-weight: 600; letter-spacing: -0.3px; }
     .nav-sub   { font-size: 12px; color: var(--text-3); letter-spacing: 0; }
+    .lang-toggle { display:flex; align-items:center; gap:5px; }
+    .lang-btn {
+      background:none; border:none; cursor:pointer; font:inherit;
+      font-size:12px; font-weight:600; color:var(--text-3);
+      padding:2px 5px; letter-spacing:0.4px; transition:color .15s;
+      border-radius:4px;
+    }
+    .lang-btn:hover { color:var(--text-2); }
+    .lang-btn.active { color:var(--accent); }
 
     /* ── LAYOUT ───────────────────────────────────── */
     main {
@@ -369,7 +378,14 @@
   <nav class="navbar">
     <div class="navbar-inner">
       <span class="nav-title">Virtuale Downloader</span>
-      <span class="nav-sub">virtuale.unibo.it</span>
+      <div style="display:flex;align-items:center;gap:14px">
+        <span class="nav-sub">virtuale.unibo.it</span>
+        <div class="lang-toggle">
+          <button class="lang-btn active" id="btn-lang-it" onclick="setLang('it')">IT</button>
+          <span style="color:var(--border-in);font-size:11px;user-select:none">|</span>
+          <button class="lang-btn" id="btn-lang-en" onclick="setLang('en')">EN</button>
+        </div>
+      </div>
     </div>
   </nav>
 
@@ -380,7 +396,7 @@
       <div class="card-head">
         <div class="card-head-l">
           <span class="step-lbl">Step 1</span>
-          <span class="card-title">Credenziali</span>
+          <span class="card-title" data-i18n="step1_title">Credenziali</span>
         </div>
       </div>
 
@@ -391,13 +407,13 @@
             <line x1="12" y1="16" x2="12" y2="12"></line>
             <line x1="12" y1="8" x2="12.01" y2="8"></line>
           </svg>
-          Come ottenere il cookie MoodleSession
+          <span data-i18n="help_toggle">Come ottenere il cookie MoodleSession</span>
           <svg id="help-chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-left:auto;transition:transform .2s">
             <polyline points="6 9 12 15 18 9"></polyline>
           </svg>
         </button>
 
-        <div id="help-box" class="help-box hidden">
+        <div id="help-box" class="help-box hidden" data-i18n-html="help_html">
           <ol>
             <li>Accedi a <strong>virtuale.unibo.it</strong> con le tue credenziali</li>
             <li>Apri DevTools con <kbd>F12</kbd></li>
@@ -407,14 +423,15 @@
         </div>
 
         <div class="field">
-          <label class="field-lbl" for="moodle-session">Cookie MoodleSession</label>
+          <label class="field-lbl" for="moodle-session" data-i18n="cookie_label">Cookie MoodleSession</label>
           <input id="moodle-session" class="field-in mono token-input" type="text"
             autocomplete="off" spellcheck="false" autocorrect="off" autocapitalize="off"
+            data-i18n-ph="cookie_ph"
             placeholder="Incolla il valore del cookie…" />
         </div>
 
         <div class="field">
-          <label class="field-lbl" for="course-url">URL del corso</label>
+          <label class="field-lbl" for="course-url" data-i18n="url_label">URL del corso</label>
           <input id="course-url" class="field-in" type="url"
             autocomplete="off" spellcheck="false"
             placeholder="https://virtuale.unibo.it/course/view.php?id=…" />
@@ -423,7 +440,7 @@
         <div id="analyze-error" class="err-msg"></div>
 
         <button class="btn btn-primary" id="btn-analyze" onclick="analyze()" style="margin-top:18px">
-          <span id="analyze-text">Analizza corso</span>
+          <span id="analyze-text" data-i18n="analyze_btn">Analizza corso</span>
         </button>
       </div>
     </section>
@@ -433,13 +450,13 @@
       <div class="card-head">
         <div class="card-head-l">
           <span class="step-lbl">Step 2</span>
-          <span class="card-title">Seleziona risorse</span>
+          <span class="card-title" data-i18n="step2_title">Seleziona risorse</span>
           <span id="stats-badge" class="chip"></span>
         </div>
         <div style="display:flex;gap:10px;align-items:center">
-          <button class="lnk" onclick="selectAll(true)">Tutti</button>
+          <button class="lnk" onclick="selectAll(true)" data-i18n="sel_all">Tutti</button>
           <span style="color:var(--text-3)">|</span>
-          <button class="lnk lnk-muted" onclick="selectAll(false)">Nessuno</button>
+          <button class="lnk lnk-muted" onclick="selectAll(false)" data-i18n="sel_none">Nessuno</button>
         </div>
       </div>
 
@@ -483,17 +500,105 @@
           <span id="done-text" class="success-text"></span>
         </div>
         <a id="zip-link" href="#" class="btn btn-success" style="text-decoration:none;display:inline-flex;margin-bottom:8px">
-          Scarica archivio ZIP
+          <span data-i18n="zip_btn">Scarica archivio ZIP</span>
         </a>
-        <button class="btn btn-ghost" onclick="reset()">↩ Scarica un altro corso</button>
+        <button class="btn btn-ghost" onclick="reset()" data-i18n="reset_btn">↩ Scarica un altro corso</button>
       </div>
     </section>
 
   </main>
 
-  <footer>Solo per uso personale · virtuale.unibo.it</footer>
+  <footer data-i18n="footer">Solo per uso personale · virtuale.unibo.it</footer>
 
 <script>
+// ── i18n ─────────────────────────────────────────────────────
+const TR = {
+  it: {
+    step1_title: 'Credenziali',
+    help_toggle: 'Come ottenere il cookie MoodleSession',
+    help_html: '<ol><li>Accedi a <strong>virtuale.unibo.it</strong> con le tue credenziali</li><li>Apri DevTools con <kbd>F12</kbd></li><li>Vai in <strong>Application → Cookies → virtuale.unibo.it</strong></li><li>Copia il valore di <code>MoodleSession</code></li></ol>',
+    cookie_label: 'Cookie MoodleSession',
+    cookie_ph:   'Incolla il valore del cookie…',
+    url_label:   'URL del corso',
+    analyze_btn: 'Analizza corso',
+    analyzing:   'Analisi in corso…',
+    step2_title: 'Seleziona risorse',
+    sel_all:     'Tutti',
+    sel_none:    'Nessuno',
+    sections_lbl:'sezioni',
+    resources_lbl:'risorse',
+    dl_btn: n => `Scarica ${n} ${n===1?'risorsa':'risorse'} selezionate`,
+    step3_title: 'Download in corso',
+    step3_done:  'Download completato',
+    step3_err:   'Errore durante il download',
+    starting:    'Avvio…',
+    log_wait:    'In attesa di eventi…',
+    log_conn:    'Connessione al server…',
+    zip_btn:     'Scarica archivio ZIP',
+    reset_btn:   '↩ Scarica un altro corso',
+    err_cookie:  'Inserisci il cookie MoodleSession.',
+    err_url:     "Inserisci l'URL del corso.",
+    err_badurl:  "L'URL deve iniziare con https://virtuale.unibo.it",
+    err_nosel:   'Seleziona almeno una risorsa.',
+    footer:      'Solo per uso personale · virtuale.unibo.it',
+  },
+  en: {
+    step1_title: 'Credentials',
+    help_toggle: 'How to get the MoodleSession cookie',
+    help_html: '<ol><li>Log in to <strong>virtuale.unibo.it</strong></li><li>Open DevTools with <kbd>F12</kbd></li><li>Go to <strong>Application → Cookies → virtuale.unibo.it</strong></li><li>Copy the value of <code>MoodleSession</code></li></ol>',
+    cookie_label: 'MoodleSession Cookie',
+    cookie_ph:   'Paste the cookie value here…',
+    url_label:   'Course URL',
+    analyze_btn: 'Analyze course',
+    analyzing:   'Analyzing…',
+    step2_title: 'Select resources',
+    sel_all:     'All',
+    sel_none:    'None',
+    sections_lbl:'sections',
+    resources_lbl:'resources',
+    dl_btn: n => `Download ${n} selected ${n===1?'resource':'resources'}`,
+    step3_title: 'Download in progress',
+    step3_done:  'Download complete',
+    step3_err:   'Download error',
+    starting:    'Starting…',
+    log_wait:    'Waiting for events…',
+    log_conn:    'Connecting to server…',
+    zip_btn:     'Download ZIP archive',
+    reset_btn:   '↩ Download another course',
+    err_cookie:  'Please enter the MoodleSession cookie.',
+    err_url:     'Please enter the course URL.',
+    err_badurl:  'URL must start with https://virtuale.unibo.it',
+    err_nosel:   'Select at least one resource.',
+    footer:      'For personal use only · virtuale.unibo.it',
+  },
+};
+
+let lang = localStorage.getItem('vd-lang') || 'it';
+
+function t(key, ...a) {
+  const v = TR[lang][key];
+  return typeof v === 'function' ? v(...a) : (v ?? key);
+}
+
+function setLang(l) {
+  lang = l;
+  localStorage.setItem('vd-lang', l);
+  document.documentElement.lang = l;
+  document.getElementById('btn-lang-it').classList.toggle('active', l === 'it');
+  document.getElementById('btn-lang-en').classList.toggle('active', l === 'en');
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const v = TR[l][el.dataset.i18n];
+    if (v !== undefined && typeof v !== 'function') el.textContent = v;
+  });
+  document.querySelectorAll('[data-i18n-html]').forEach(el => {
+    el.innerHTML = t(el.dataset.i18nHtml);
+  });
+  document.querySelectorAll('[data-i18n-ph]').forEach(el => {
+    el.placeholder = t(el.dataset.i18nPh);
+  });
+  updateDownloadBtn();
+}
+
 // ── stato ────────────────────────────────────────────────────
 let currentMoodleSession = '';
 let currentSessionId     = '';
@@ -582,17 +687,17 @@ async function analyze() {
   const moodleSession = document.getElementById('moodle-session').value.trim();
   const courseUrl     = document.getElementById('course-url').value.trim();
 
-  if (!moodleSession) { showError('Inserisci il cookie MoodleSession.'); return; }
-  if (!courseUrl)     { showError("Inserisci l'URL del corso."); return; }
+  if (!moodleSession) { showError(t('err_cookie')); return; }
+  if (!courseUrl)     { showError(t('err_url')); return; }
   if (!courseUrl.startsWith('https://virtuale.unibo.it')) {
-    showError("L'URL deve iniziare con https://virtuale.unibo.it");
+    showError(t('err_badurl'));
     return;
   }
 
   const btn = document.getElementById('btn-analyze');
   const txt = document.getElementById('analyze-text');
   btn.disabled = true;
-  txt.innerHTML = '<span class="spin">↻</span>&nbsp;Analisi in corso…';
+  txt.innerHTML = `<span class="spin">↻</span>&nbsp;${t('analyzing')}`;
 
   try {
     let sections;
@@ -621,7 +726,7 @@ async function analyze() {
 
   } finally {
     btn.disabled = false;
-    txt.textContent = 'Analizza corso';
+    txt.textContent = t('analyze_btn');
   }
 }
 
@@ -632,7 +737,7 @@ function renderPreview(sections) {
 
   const totalItems = sections.reduce((n, s) => n + s.items.length, 0);
   document.getElementById('stats-badge').textContent =
-    `${sections.length} sezioni · ${totalItems} risorse`;
+    `${sections.length} ${t('sections_lbl')} · ${totalItems} ${t('resources_lbl')}`;
 
   sections.forEach((section, si) => {
     const wrap = document.createElement('div');
@@ -742,8 +847,7 @@ function selectAll(val) {
 
 function updateDownloadBtn() {
   const n = document.querySelectorAll('.item-checkbox:checked').length;
-  document.getElementById('download-btn-text').textContent =
-    `Scarica ${n} ${n === 1 ? 'risorsa' : 'risorse'} selezionate`;
+  document.getElementById('download-btn-text').textContent = t('dl_btn', n);
 }
 
 // ── STEP 3: download ──────────────────────────────────────────
@@ -755,15 +859,15 @@ async function startDownload() {
     const item = courseData[si].items[ii];
     selected.push({ ...item, section: courseData[si].title });
   });
-  if (!selected.length) { alert('Seleziona almeno una risorsa.'); return; }
+  if (!selected.length) { alert(t('err_nosel')); return; }
 
   // reset UI
   const logEl = document.getElementById('log');
-  logEl.innerHTML = '<span class="log-line log-muted">Connessione al server…</span>';
+  logEl.innerHTML = `<span class="log-line log-muted">${t('log_conn')}</span>`;
   document.getElementById('progress-bar').style.width = '0%';
   document.getElementById('progress-pct').textContent = '0%';
-  document.getElementById('progress-label').textContent = 'Avvio…';
-  document.getElementById('step3-title').textContent = 'Download in corso';
+  document.getElementById('progress-label').textContent = t('starting');
+  document.getElementById('step3-title').textContent = t('step3_title');
   hide('zip-section');
   showSection('step-progress');
   setTimeout(() => scrollToEl('step-progress'), 60);
@@ -796,12 +900,15 @@ async function startDownload() {
       }
       if (msg.type === 'done') {
         es.close();
-        document.getElementById('step3-title').textContent = 'Download completato';
+        document.getElementById('step3-title').textContent = t('step3_done');
         document.getElementById('done-text').textContent = msg.message;
         document.getElementById('zip-link').href = `/api/zip/${currentSessionId}`;
         document.getElementById('zip-section').classList.remove('hidden');
       }
-      if (msg.type === 'error') { es.close(); }
+      if (msg.type === 'error') {
+        es.close();
+        document.getElementById('step3-title').textContent = t('step3_err');
+      }
     };
     es.onerror = () => es.close();
     usedReal = true;
@@ -885,6 +992,7 @@ function reset() {
 
 // ── enter key ──────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
+  setLang(lang);
   ['moodle-session', 'course-url'].forEach(id => {
     document.getElementById(id).addEventListener('keydown', e => {
       if (e.key === 'Enter') analyze();
