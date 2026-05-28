@@ -372,6 +372,56 @@
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
 
+    /* ── DRAG & DROP ─────────────────────────────────── */
+    .drag-handle {
+      cursor: grab; color: var(--text-3);
+      display: flex; align-items: center; padding: 0 4px 0 0;
+      border-radius: 3px; flex-shrink: 0;
+      opacity: 0; transition: opacity .15s, color .15s;
+    }
+    .sec-head:hover .drag-handle { opacity: 1; }
+    .drag-handle:hover { color: var(--text-2); }
+    .drag-handle:active { cursor: grabbing; }
+    .sec-wrap.dragging { opacity: 0.35; }
+    .sec-wrap.drag-over-top    { box-shadow: inset 0  2px 0 var(--accent); }
+    .sec-wrap.drag-over-bottom { box-shadow: inset 0 -2px 0 var(--accent); }
+
+    /* ── SEARCH ──────────────────────────────────────── */
+    .search-wrap {
+      display: flex; align-items: center; gap: 9px;
+      padding: 9px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+    .search-wrap > svg { color: var(--text-3); flex-shrink: 0; }
+    .search-input {
+      flex: 1; background: none; border: none; outline: none;
+      font: inherit; font-size: 13.5px; color: var(--text-1);
+    }
+    .search-input::placeholder { color: var(--text-3); }
+    /* hide native ✕ in WebKit */
+    .search-input::-webkit-search-cancel-button { -webkit-appearance: none; }
+    .search-clear {
+      background: none; border: none; cursor: pointer;
+      color: var(--text-3); font-size: 15px; padding: 1px 3px;
+      line-height: 1; border-radius: 50%;
+      transition: color .12s;
+    }
+    .search-clear:hover { color: var(--text-1); }
+    .no-results {
+      padding: 22px 20px; text-align: center;
+      font-size: 13px; color: var(--text-3);
+    }
+
+    /* ── NOTIFICATION BUTTON ─────────────────────────── */
+    .notif-btn {
+      background: none; border: none; cursor: pointer;
+      color: var(--text-3); padding: 4px; border-radius: 6px;
+      display: flex; align-items: center;
+      transition: color .15s, background .15s;
+    }
+    .notif-btn:hover { color: var(--text-1); background: rgba(128,128,128,0.12); }
+    .notif-btn.granted { color: var(--success); }
+
     /* ── CUSTOM CHECKBOX ──────────────────────────── */
     input[type="checkbox"] {
       -webkit-appearance: none; appearance: none;
@@ -570,12 +620,24 @@
           <span class="card-title" data-i18n="step2_title">Seleziona risorse</span>
           <span id="stats-badge" class="chip"></span>
         </div>
-        <div style="display:flex;gap:10px;align-items:center">
+        <div style="display:flex;gap:8px;align-items:center">
           <button class="lnk" onclick="selectAll(true)" data-i18n="sel_all">Tutti</button>
           <span style="color:var(--text-3)">|</span>
           <button class="lnk lnk-muted" onclick="selectAll(false)" data-i18n="sel_none">Nessuno</button>
+          <button id="notif-btn" class="notif-btn" onclick="toggleNotif()" aria-label="Notifiche desktop"></button>
         </div>
       </div>
+
+      <div class="search-wrap">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <input id="search-input" class="search-input" type="search"
+          data-i18n-ph="search_ph" placeholder="Cerca risorse…"
+          oninput="filterResources(this.value)" autocomplete="off" spellcheck="false">
+        <button id="search-clear" class="search-clear hidden" onclick="clearSearch()" aria-label="Cancella ricerca">✕</button>
+      </div>
+      <div id="no-results" class="no-results hidden" data-i18n="no_results">Nessuna risorsa trovata</div>
 
       <div id="sections-container"></div>
 
@@ -660,6 +722,11 @@ const TR = {
     err_url:     "Inserisci l'URL del corso.",
     err_badurl:  "L'URL deve iniziare con https://virtuale.unibo.it",
     err_nosel:   'Seleziona almeno una risorsa.',
+    search_ph:   'Cerca risorse…',
+    no_results:  'Nessuna risorsa trovata',
+    notif_tip:   'Abilita notifiche desktop',
+    notif_tip_on:'Notifiche abilitate',
+    notif_denied:'Notifiche bloccate dal browser',
     footer:      'Solo per uso personale · virtuale.unibo.it',
   },
   en: {
@@ -689,6 +756,11 @@ const TR = {
     err_url:     'Please enter the course URL.',
     err_badurl:  'URL must start with https://virtuale.unibo.it',
     err_nosel:   'Select at least one resource.',
+    search_ph:   'Search resources…',
+    no_results:  'No resources found',
+    notif_tip:   'Enable desktop notifications',
+    notif_tip_on:'Notifications enabled',
+    notif_denied:'Notifications blocked by browser',
     footer:      'For personal use only · virtuale.unibo.it',
   },
 };
@@ -717,6 +789,7 @@ function setLang(l) {
     el.placeholder = t(el.dataset.i18nPh);
   });
   updateDownloadBtn();
+  updateNotifBtn();
 }
 
 // ── tema ─────────────────────────────────────────────────────
@@ -838,6 +911,139 @@ function positionPreview(e) {
 
 function hidePreview() {
   document.getElementById('preview-card').classList.remove('visible');
+}
+
+// ── preview ritardato ─────────────────────────────────────────
+const PREVIEW_DELAY = 650;
+let _previewTimer   = null;
+let _previewPending = null;
+let _lastMouseEv    = null;
+
+function schedulePreview(e, item, sectionTitle) {
+  clearTimeout(_previewTimer);
+  _lastMouseEv    = e;
+  _previewPending = { item, sectionTitle };
+  _previewTimer   = setTimeout(() => {
+    if (_previewPending) showPreview(_lastMouseEv, _previewPending.item, _previewPending.sectionTitle);
+    _previewPending = null;
+  }, PREVIEW_DELAY);
+}
+
+function cancelPreview() {
+  clearTimeout(_previewTimer);
+  _previewTimer = _previewPending = null;
+  hidePreview();
+}
+
+// ── drag & drop sezioni ───────────────────────────────────────
+let _dragSrc = null;
+
+function onDragStart(e, wrap) {
+  _dragSrc = wrap;
+  setTimeout(() => wrap.classList.add('dragging'), 0);
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', '');
+}
+
+function onDragOver(e, wrap) {
+  if (!_dragSrc || wrap === _dragSrc) return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  const rect  = wrap.getBoundingClientRect();
+  const above = e.clientY < rect.top + rect.height / 2;
+  document.querySelectorAll('#sections-container .sec-wrap').forEach(w =>
+    w.classList.remove('drag-over-top', 'drag-over-bottom'));
+  wrap.classList.add(above ? 'drag-over-top' : 'drag-over-bottom');
+}
+
+function onDragLeave(e, wrap) {
+  if (!wrap.contains(e.relatedTarget))
+    wrap.classList.remove('drag-over-top', 'drag-over-bottom');
+}
+
+function onDrop(e, wrap) {
+  e.preventDefault();
+  _clearDragClasses();
+  if (!_dragSrc || wrap === _dragSrc) return;
+  const rect  = wrap.getBoundingClientRect();
+  const above = e.clientY < rect.top + rect.height / 2;
+  document.getElementById('sections-container').insertBefore(_dragSrc, above ? wrap : wrap.nextSibling);
+  _reorderCourseData();
+}
+
+function onDragEnd(wrap) {
+  wrap.draggable = false;
+  _clearDragClasses();
+  _dragSrc = null;
+}
+
+function _clearDragClasses() {
+  document.querySelectorAll('#sections-container .sec-wrap').forEach(w =>
+    w.classList.remove('dragging', 'drag-over-top', 'drag-over-bottom'));
+}
+
+function _reorderCourseData() {
+  const wraps    = [...document.querySelectorAll('#sections-container .sec-wrap')];
+  const snapshot = [...courseData];
+  courseData = wraps.map(w => snapshot[parseInt(w.dataset.sectionIndex)]);
+  wraps.forEach((w, i) => {
+    w.dataset.sectionIndex = i;
+    w.querySelectorAll('[data-section]').forEach(el => el.dataset.section = i);
+  });
+  updateDownloadBtn();
+}
+
+// ── ricerca risorse ───────────────────────────────────────────
+function filterResources(query) {
+  const q = query.trim().toLowerCase();
+  document.getElementById('search-clear').classList.toggle('hidden', !query.trim());
+  let anyVisible = false;
+  document.querySelectorAll('#sections-container .sec-wrap').forEach(wrap => {
+    let secMatch = false;
+    wrap.querySelectorAll('.resource-row').forEach(row => {
+      const match = !q || row.querySelector('.resource-name').textContent.toLowerCase().includes(q);
+      row.style.display = match ? '' : 'none';
+      if (match) secMatch = true;
+    });
+    wrap.style.display = secMatch ? '' : 'none';
+    if (secMatch) anyVisible = true;
+  });
+  document.getElementById('no-results').classList.toggle('hidden', !q || anyVisible);
+}
+
+function clearSearch() {
+  const el = document.getElementById('search-input');
+  el.value = '';
+  filterResources('');
+  el.focus();
+}
+
+// ── notifiche desktop ─────────────────────────────────────────
+const BELL_SVG = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>`;
+
+function updateNotifBtn() {
+  const btn = document.getElementById('notif-btn');
+  if (!btn) return;
+  if (!('Notification' in window)) { btn.style.display = 'none'; return; }
+  btn.innerHTML = BELL_SVG;
+  const p = Notification.permission;
+  btn.classList.toggle('granted', p === 'granted');
+  btn.title = p === 'granted' ? t('notif_tip_on')
+            : p === 'denied'  ? t('notif_denied')
+            : t('notif_tip');
+  btn.style.cursor = p === 'denied' ? 'default' : 'pointer';
+}
+
+function toggleNotif() {
+  if (!('Notification' in window) || Notification.permission === 'denied') return;
+  Notification.requestPermission().then(updateNotifBtn);
+}
+
+function notifyDone(msg) {
+  if (document.hasFocus()) return;
+  if ('Notification' in window && Notification.permission === 'granted') {
+    new Notification('Virtuale Downloader ✅', { body: msg });
+  }
 }
 
 // ── stato ────────────────────────────────────────────────────
@@ -976,6 +1182,12 @@ function renderPreview(sections) {
   const container = document.getElementById('sections-container');
   container.innerHTML = '';
 
+  // Reset barra di ricerca
+  const searchEl = document.getElementById('search-input');
+  if (searchEl) searchEl.value = '';
+  document.getElementById('search-clear')?.classList.add('hidden');
+  document.getElementById('no-results')?.classList.add('hidden');
+
   const totalItems = sections.reduce((n, s) => n + s.items.length, 0);
   document.getElementById('stats-badge').textContent =
     `${sections.length} ${t('sections_lbl')} · ${totalItems} ${t('resources_lbl')}`;
@@ -983,6 +1195,22 @@ function renderPreview(sections) {
   sections.forEach((section, si) => {
     const wrap = document.createElement('div');
     wrap.className = 'sec-wrap';
+    wrap.dataset.sectionIndex = si;  // necessario per _reorderCourseData
+
+    // ── drag handle ──
+    const handle = document.createElement('span');
+    handle.className = 'drag-handle';
+    handle.title = 'Trascina per riordinare';
+    handle.innerHTML = `<svg width="10" height="14" viewBox="0 0 10 14" fill="currentColor">
+      <circle cx="2" cy="2" r="1.5"/><circle cx="8" cy="2" r="1.5"/>
+      <circle cx="2" cy="7" r="1.5"/><circle cx="8" cy="7" r="1.5"/>
+      <circle cx="2" cy="12" r="1.5"/><circle cx="8" cy="12" r="1.5"/></svg>`;
+    // Abilita il drag solo dal handle
+    handle.addEventListener('mousedown', () => {
+      wrap.draggable = true;
+      const reset = () => { wrap.draggable = false; document.removeEventListener('mouseup', reset, true); };
+      document.addEventListener('mouseup', reset, true);
+    });
 
     // ── intestazione sezione ──
     const head = document.createElement('div');
@@ -1013,7 +1241,7 @@ function renderPreview(sections) {
     poly.setAttribute('points', '9 18 15 12 9 6');
     chev.appendChild(poly);
 
-    head.append(cb, title, count, chev);
+    head.append(handle, cb, title, count, chev);
 
     // ── lista risorse ──
     const list = document.createElement('div');
@@ -1043,25 +1271,37 @@ function renderPreview(sections) {
       badge.textContent = item.type;
 
       row.append(itemCb, iconEl, name, badge);
-      itemCb.addEventListener('change', () => syncSectionCb(si));
 
-      // ── hover preview ──
-      row.addEventListener('mouseenter', e => showPreview(e, item, section.title));
-      row.addEventListener('mousemove',  positionPreview);
-      row.addEventListener('mouseleave', hidePreview);
+      // Legge l'indice dal dataset al momento dell'evento (sopravvive al riordino)
+      itemCb.addEventListener('change', e => syncSectionCb(parseInt(e.target.dataset.section)));
+
+      // ── hover preview (ritardato) ──
+      row.addEventListener('mouseenter', e => schedulePreview(e, item, section.title));
+      row.addEventListener('mousemove',  e => {
+        _lastMouseEv = e;
+        if (document.getElementById('preview-card').classList.contains('visible')) positionPreview(e);
+      });
+      row.addEventListener('mouseleave', cancelPreview);
 
       list.appendChild(row);
     });
 
-    // toggle espandi/collassa su click intestazione
+    // toggle espandi/collassa (ignora click su handle e checkbox)
     head.addEventListener('click', e => {
-      if (e.target === cb || cb.contains(e.target)) return;
+      if (e.target === cb || cb.contains(e.target) || handle.contains(e.target)) return;
       const collapsed = list.classList.toggle('collapsed');
       chev.classList.toggle('open', !collapsed);
     });
 
-    // checkbox di sezione
-    cb.addEventListener('change', e => toggleSection(si, e.target.checked));
+    // Legge l'indice dal dataset al momento dell'evento
+    cb.addEventListener('change', e => toggleSection(parseInt(e.target.dataset.section), e.target.checked));
+
+    // drag & drop
+    wrap.addEventListener('dragstart', e => onDragStart(e, wrap));
+    wrap.addEventListener('dragover',  e => onDragOver(e, wrap));
+    wrap.addEventListener('dragleave', e => onDragLeave(e, wrap));
+    wrap.addEventListener('drop',      e => onDrop(e, wrap));
+    wrap.addEventListener('dragend',   () => onDragEnd(wrap));
 
     wrap.append(head, list);
     container.appendChild(wrap);
@@ -1153,6 +1393,7 @@ async function startDownload() {
         document.getElementById('done-text').textContent = msg.message;
         document.getElementById('zip-link').href = `/api/zip/${currentSessionId}`;
         document.getElementById('zip-section').classList.remove('hidden');
+        notifyDone(msg.message);
       }
       if (msg.type === 'error') {
         es.close();
@@ -1207,10 +1448,12 @@ async function simulateDownload(items) {
   await delay(550);
   appendLog(`Completato — ${ok} file scaricati.`, 'done');
 
-  document.getElementById('step3-title').textContent = 'Download completato';
-  document.getElementById('done-text').textContent = `${ok} file scaricati con successo.`;
+  document.getElementById('step3-title').textContent = t('step3_done');
+  const doneMsg = `${ok} file scaricati con successo.`;
+  document.getElementById('done-text').textContent = doneMsg;
   document.getElementById('zip-link').href = '#';
   document.getElementById('zip-section').classList.remove('hidden');
+  notifyDone(doneMsg);
 }
 
 function appendLog(text, type) {
@@ -1243,6 +1486,7 @@ function reset() {
 document.addEventListener('DOMContentLoaded', () => {
   applyTheme(document.documentElement.getAttribute('data-theme') === 'dark');
   setLang(lang);
+  updateNotifBtn();
   ['moodle-session', 'course-url'].forEach(id => {
     document.getElementById(id).addEventListener('keydown', e => {
       if (e.key === 'Enter') analyze();
