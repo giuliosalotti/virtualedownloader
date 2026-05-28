@@ -438,6 +438,21 @@
     .history-meta { display: block; font-size: 11.5px; color: var(--text-3); margin-top: 2px; }
     .history-date { font-size: 11.5px; color: var(--text-3); white-space: nowrap; flex-shrink: 0; }
 
+    /* ── OPEN-IN-TAB BUTTON ─────────────────────────── */
+    .resource-open {
+      background: none; border: none; cursor: pointer;
+      color: var(--text-3); padding: 3px 5px;
+      border-radius: 5px; display: flex; align-items: center;
+      flex-shrink: 0;
+      opacity: 0;
+      transition: opacity .12s, color .12s, background .12s;
+    }
+    .resource-row:hover .resource-open { opacity: 1; }
+    .resource-open:hover {
+      color: var(--info);
+      background: var(--info-bg);
+    }
+
     /* ── AUTO-DOWNLOAD TOGGLE ────────────────────────── */
     .auto-dl-row {
       display: flex; align-items: center; gap: 8px;
@@ -660,6 +675,7 @@
           <button class="lnk" onclick="selectAll(true)" data-i18n="sel_all">Tutti</button>
           <span style="color:var(--text-3)">|</span>
           <button class="lnk lnk-muted" onclick="selectAll(false)" data-i18n="sel_none">Nessuno</button>
+          <button id="btn-reset-order" class="lnk lnk-muted hidden" onclick="resetSectionOrder()" data-i18n="reset_order">↺ Ripristina ordine</button>
           <button id="notif-btn" class="notif-btn" onclick="toggleNotif()" aria-label="Notifiche desktop"></button>
         </div>
       </div>
@@ -770,6 +786,8 @@ const TR = {
     history_title:'Cronologia download',
     history_clear:'Cancella tutto',
     auto_dl_label:'Scarica ZIP automaticamente al termine',
+    reset_order:  '↺ Ripristina ordine',
+    open_btn:     'Apri in nuova scheda',
     footer:      'Solo per uso personale · virtuale.unibo.it',
   },
   en: {
@@ -807,6 +825,8 @@ const TR = {
     history_title:'Download history',
     history_clear:'Clear all',
     auto_dl_label:'Auto-download ZIP when done',
+    reset_order:  '↺ Restore order',
+    open_btn:     'Open in new tab',
     footer:      'For personal use only · virtuale.unibo.it',
   },
 };
@@ -1039,6 +1059,7 @@ function _reorderCourseData() {
   });
   _renumberSections(wraps);
   updateDownloadBtn();
+  document.getElementById('btn-reset-order')?.classList.remove('hidden');
 }
 
 // Aggiorna i numeri di ordine nei titoli delle sezioni dopo ogni riordino
@@ -1052,6 +1073,35 @@ function _renumberSections(wraps) {
     const titleEl = w.querySelector('.sec-head-title');
     if (titleEl) titleEl.textContent = newTitle;
   });
+}
+
+// Ripristina l'ordine originale delle sezioni
+function resetSectionOrder() {
+  if (!originalSectionTitles) return;
+  const container = document.getElementById('sections-container');
+  const wraps     = [...container.querySelectorAll('.sec-wrap')];
+
+  // Riordina per indice originale
+  wraps.sort((a, b) => parseInt(a.dataset.originalIndex) - parseInt(b.dataset.originalIndex));
+
+  // Ricostruisce courseData nell'ordine originale ripristinando i titoli originali
+  const snapshot = [...courseData];
+  courseData = wraps.map(w => ({
+    ...snapshot[parseInt(w.dataset.sectionIndex)],
+    title: originalSectionTitles[parseInt(w.dataset.originalIndex)],
+  }));
+
+  // Re-appende nel nuovo ordine e ri-indicizza
+  wraps.forEach((w, i) => {
+    container.appendChild(w);
+    w.dataset.sectionIndex = i;
+    w.querySelectorAll('[data-section]').forEach(el => el.dataset.section = i);
+    const titleEl = w.querySelector('.sec-head-title');
+    if (titleEl) titleEl.textContent = courseData[i].title;
+  });
+
+  updateDownloadBtn();
+  document.getElementById('btn-reset-order')?.classList.add('hidden');
 }
 
 // ── ricerca risorse ───────────────────────────────────────────
@@ -1169,7 +1219,8 @@ let currentMoodleSession  = '';
 let currentSessionId      = '';
 let currentCourseName     = '';
 let courseData            = null;
-let currentDownloadItems  = [];
+let currentDownloadItems   = [];
+let originalSectionTitles  = null;   // snapshot dei titoli al primo render
 
 // ── dati mock (demo standalone) ──────────────────────────────
 const MOCK_SECTIONS = [
@@ -1301,11 +1352,15 @@ function renderPreview(sections) {
   const container = document.getElementById('sections-container');
   container.innerHTML = '';
 
-  // Reset barra di ricerca
+  // Reset barra di ricerca e pulsante reset ordine
   const searchEl = document.getElementById('search-input');
   if (searchEl) searchEl.value = '';
   document.getElementById('search-clear')?.classList.add('hidden');
   document.getElementById('no-results')?.classList.add('hidden');
+  document.getElementById('btn-reset-order')?.classList.add('hidden');
+
+  // Salva l'ordine originale per poterlo ripristinare dopo drag & drop
+  originalSectionTitles = sections.map(s => s.title);
 
   const totalItems = sections.reduce((n, s) => n + s.items.length, 0);
   document.getElementById('stats-badge').textContent =
@@ -1314,7 +1369,8 @@ function renderPreview(sections) {
   sections.forEach((section, si) => {
     const wrap = document.createElement('div');
     wrap.className = 'sec-wrap';
-    wrap.dataset.sectionIndex = si;  // necessario per _reorderCourseData
+    wrap.dataset.sectionIndex  = si;  // posizione corrente (aggiornata dopo ogni riordino)
+    wrap.dataset.originalIndex = si;  // posizione originale (fissa)
 
     // ── drag handle ──
     const handle = document.createElement('span');
@@ -1389,7 +1445,18 @@ function renderPreview(sections) {
       badge.className = `badge ${badgeClass(item.type)}`;
       badge.textContent = item.type;
 
-      row.append(itemCb, iconEl, name, badge);
+      // Pulsante "apri in nuova scheda" (visibile solo all'hover, stopPropagation evita toggle checkbox)
+      const openBtn = document.createElement('button');
+      openBtn.type = 'button';
+      openBtn.className = 'resource-open';
+      openBtn.title = t('open_btn');
+      openBtn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>`;
+      openBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        window.open(item.url, '_blank', 'noopener');
+      });
+
+      row.append(itemCb, iconEl, name, badge, openBtn);
 
       // Legge l'indice dal dataset al momento dell'evento (sopravvive al riordino)
       itemCb.addEventListener('change', e => syncSectionCb(parseInt(e.target.dataset.section)));
