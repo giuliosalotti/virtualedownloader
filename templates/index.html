@@ -462,6 +462,36 @@
       cursor: pointer; user-select: none;
     }
 
+    /* ── CONFRONTO CARTELLA ──────────────────────────── */
+    .search-compare {
+      border-left: 1px solid var(--border-in);
+      padding-left: 10px; flex-shrink: 0;
+    }
+    .btn-compare {
+      background: none; border: none; cursor: pointer;
+      font: inherit; font-size: 12.5px; font-weight: 500;
+      color: var(--info); padding: 0; white-space: nowrap;
+      transition: opacity .12s;
+    }
+    .btn-compare:hover { text-decoration: underline; }
+    .btn-compare:disabled { opacity: .4; cursor: wait; text-decoration: none; }
+
+    .compare-strip {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 8px 20px; gap: 10px; flex-wrap: wrap;
+      background: var(--info-bg);
+      border-bottom: 1px solid var(--border);
+      font-size: 12.5px; color: var(--text-2);
+    }
+
+    /* Righe già presenti in locale */
+    .b-present { background: rgba(52,199,89,0.12); color: #1A7A34; }
+    [data-theme="dark"] .b-present { color: #30D158; background: rgba(48,209,88,0.16); }
+    .resource-row.is-present { background: rgba(52,199,89,0.04) !important; }
+    [data-theme="dark"] .resource-row.is-present { background: rgba(48,209,88,0.06) !important; }
+    .resource-row.is-present:hover { background: rgba(52,199,89,0.09) !important; }
+    [data-theme="dark"] .resource-row.is-present:hover { background: rgba(48,209,88,0.12) !important; }
+
     /* ── CUSTOM CHECKBOX ──────────────────────────── */
     input[type="checkbox"] {
       -webkit-appearance: none; appearance: none;
@@ -688,7 +718,11 @@
           data-i18n-ph="search_ph" placeholder="Cerca risorse…"
           oninput="filterResources(this.value)" autocomplete="off" spellcheck="false">
         <button id="search-clear" class="search-clear hidden" onclick="clearSearch()" aria-label="Cancella ricerca">✕</button>
+        <div class="search-compare">
+          <button id="btn-compare" class="btn-compare" onclick="compareWithLocalFolder()" data-i18n="compare_btn">📂 Confronta cartella</button>
+        </div>
       </div>
+      <div id="compare-strip" class="compare-strip hidden"></div>
       <div id="no-results" class="no-results hidden" data-i18n="no_results">Nessuna risorsa trovata</div>
 
       <div id="sections-container"></div>
@@ -786,8 +820,15 @@ const TR = {
     history_title:'Cronologia download',
     history_clear:'Cancella tutto',
     auto_dl_label:'Scarica ZIP automaticamente al termine',
-    reset_order:  '↺ Ripristina ordine',
-    open_btn:     'Apri in nuova scheda',
+    reset_order:         '↺ Ripristina ordine',
+    open_btn:            'Apri in nuova scheda',
+    compare_btn:         '📂 Confronta cartella',
+    compare_loading:     'Lettura…',
+    compare_unsupported: 'Funzione non supportata: usa Chrome o Edge.',
+    compare_present:     'già presenti',
+    compare_new:         'nuovi',
+    compare_only_new:    'Seleziona solo i nuovi',
+    compare_present_badge: 'Già scaricato in precedenza',
     footer:      'Solo per uso personale · virtuale.unibo.it',
   },
   en: {
@@ -825,8 +866,15 @@ const TR = {
     history_title:'Download history',
     history_clear:'Clear all',
     auto_dl_label:'Auto-download ZIP when done',
-    reset_order:  '↺ Restore order',
-    open_btn:     'Open in new tab',
+    reset_order:         '↺ Restore order',
+    open_btn:            'Open in new tab',
+    compare_btn:         '📂 Compare folder',
+    compare_loading:     'Reading…',
+    compare_unsupported: 'Feature not supported: use Chrome or Edge.',
+    compare_present:     'already present',
+    compare_new:         'new',
+    compare_only_new:    'Select only new',
+    compare_present_badge: 'Previously downloaded',
     footer:      'For personal use only · virtuale.unibo.it',
   },
 };
@@ -1214,6 +1262,138 @@ function renderHistory() {
   }).join('');
 }
 
+// ── confronto cartella locale ─────────────────────────────────
+let _localFiles = null; // { files: string[], dirs: string[] } | null
+
+/* Tokenizza e normalizza un nome per il confronto fuzzy */
+function _normTokens(name) {
+  return name
+    .toLowerCase()
+    .replace(/\.[^.]+$/, '')          // rimuove estensione
+    .replace(/[-_–—·]/g, ' ')        // trattini → spazi
+    .replace(/[^a-z0-9\s]/g, '')      // rimuove altri caratteri
+    .split(/\s+/)
+    .filter(w => w.length > 1);       // scarta parole di 1 carattere
+}
+
+/* True se almeno il 50% dei token del nome più corto è contenuto nell'altro */
+function _isSimilar(moodleName, localName) {
+  const mt = _normTokens(moodleName);
+  const lt = _normTokens(localName);
+  if (!mt.length || !lt.length) return false;
+  const [shorter, longer] = mt.length <= lt.length ? [mt, lt] : [lt, mt];
+  const hits = shorter.filter(w => longer.some(lw => lw.includes(w) || w.includes(lw)));
+  return hits.length / shorter.length >= 0.5;
+}
+
+/* Raccoglie ricorsivamente nomi di file e cartelle */
+async function _collectEntries(dirHandle, files, dirs) {
+  for await (const [name, handle] of dirHandle.entries()) {
+    if (handle.kind === 'file') {
+      files.push(name);
+    } else {
+      dirs.push(name);
+      await _collectEntries(handle, files, dirs);
+    }
+  }
+}
+
+/* Apre il selettore cartella e avvia il confronto */
+async function compareWithLocalFolder() {
+  if (!courseData) return;
+  if (!('showDirectoryPicker' in window)) {
+    alert(t('compare_unsupported'));
+    return;
+  }
+  let dirHandle;
+  try {
+    dirHandle = await window.showDirectoryPicker({ mode: 'read' });
+  } catch (e) {
+    if (e.name !== 'AbortError') console.error(e);
+    return;
+  }
+  const btn = document.getElementById('btn-compare');
+  if (btn) { btn.disabled = true; btn.textContent = t('compare_loading'); }
+  try {
+    const files = [], dirs = [];
+    await _collectEntries(dirHandle, files, dirs);
+    _localFiles = { files, dirs };
+    _applyComparison();
+  } catch (e) {
+    console.error('Confronto fallito:', e);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = t('compare_btn'); }
+  }
+}
+
+/* Marca le righe come presenti/nuove e aggiorna il banner */
+function _applyComparison() {
+  if (!_localFiles || !courseData) return;
+  const { files, dirs } = _localFiles;
+
+  // Rimuove stato precedente
+  document.querySelectorAll('.compare-badge').forEach(b => b.remove());
+  document.querySelectorAll('.resource-row.is-present').forEach(r => r.classList.remove('is-present'));
+
+  let presentCount = 0, newCount = 0;
+
+  document.querySelectorAll('.item-checkbox').forEach(cb => {
+    const si   = parseInt(cb.dataset.section);
+    const ii   = parseInt(cb.dataset.item);
+    const item = courseData?.[si]?.items?.[ii];
+    if (!item || item.type === 'url' || item.type === 'forum' || item.type === 'other') return;
+
+    const row   = cb.parentElement;
+    const pool  = item.type === 'folder' ? dirs : files;
+    const found = pool.some(n => _isSimilar(item.name, n));
+
+    if (found) {
+      row.classList.add('is-present');
+      const badge = document.createElement('span');
+      badge.className = 'badge b-present compare-badge';
+      badge.textContent = '✓';
+      badge.title = t('compare_present_badge');
+      row.insertBefore(badge, row.querySelector('.resource-open') ?? null);
+      presentCount++;
+    } else {
+      newCount++;
+    }
+  });
+
+  // Aggiorna il banner riepilogativo
+  const strip = document.getElementById('compare-strip');
+  if (!strip) return;
+  strip.innerHTML = `
+    <span>${presentCount} ${t('compare_present')} · <strong style="color:var(--info)">${newCount} ${t('compare_new')}</strong></span>
+    <span style="display:flex;gap:10px;align-items:center">
+      ${newCount > 0 ? `<button class="lnk" onclick="selectOnlyNew()">${t('compare_only_new')}</button>` : ''}
+      <button class="lnk lnk-muted" onclick="clearComparison()" style="font-size:13px" aria-label="Chiudi confronto">✕</button>
+    </span>`;
+  strip.classList.remove('hidden');
+}
+
+/* Deseleziona i file già presenti, seleziona quelli nuovi */
+function selectOnlyNew() {
+  document.querySelectorAll('.item-checkbox').forEach(cb => {
+    const si   = parseInt(cb.dataset.section);
+    const ii   = parseInt(cb.dataset.item);
+    const item = courseData?.[si]?.items?.[ii];
+    if (!item || item.type === 'forum') { cb.checked = false; return; }
+    cb.checked = !cb.parentElement.classList.contains('is-present');
+  });
+  const siSet = new Set([...document.querySelectorAll('.item-checkbox')].map(c => c.dataset.section));
+  siSet.forEach(si => syncSectionCb(parseInt(si)));
+  updateDownloadBtn();
+}
+
+/* Azzera il confronto */
+function clearComparison() {
+  document.querySelectorAll('.compare-badge').forEach(b => b.remove());
+  document.querySelectorAll('.resource-row.is-present').forEach(r => r.classList.remove('is-present'));
+  document.getElementById('compare-strip')?.classList.add('hidden');
+  _localFiles = null;
+}
+
 // ── stato ────────────────────────────────────────────────────
 let currentMoodleSession  = '';
 let currentSessionId      = '';
@@ -1358,6 +1538,7 @@ function renderPreview(sections) {
   document.getElementById('search-clear')?.classList.add('hidden');
   document.getElementById('no-results')?.classList.add('hidden');
   document.getElementById('btn-reset-order')?.classList.add('hidden');
+  clearComparison();  // nuovo corso → azzera confronto precedente
 
   // Salva l'ordine originale per poterlo ripristinare dopo drag & drop
   originalSectionTitles = sections.map(s => s.title);
