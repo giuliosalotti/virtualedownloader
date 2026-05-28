@@ -422,6 +422,31 @@
     .notif-btn:hover { color: var(--text-1); background: rgba(128,128,128,0.12); }
     .notif-btn.granted { color: var(--success); }
 
+    /* ── CRONOLOGIA ──────────────────────────────────── */
+    .history-item {
+      display: flex; align-items: center; gap: 14px;
+      padding: 10px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+    .history-item:last-child { border-bottom: none; }
+    .history-main { flex: 1; min-width: 0; }
+    .history-name {
+      display: block; font-size: 13.5px; font-weight: 500;
+      color: var(--text-1);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .history-meta { display: block; font-size: 11.5px; color: var(--text-3); margin-top: 2px; }
+    .history-date { font-size: 11.5px; color: var(--text-3); white-space: nowrap; flex-shrink: 0; }
+
+    /* ── AUTO-DOWNLOAD TOGGLE ────────────────────────── */
+    .auto-dl-row {
+      display: flex; align-items: center; gap: 8px;
+      margin-top: 10px; padding-top: 10px;
+      border-top: 1px solid var(--border);
+      font-size: 12.5px; color: var(--text-2);
+      cursor: pointer; user-select: none;
+    }
+
     /* ── CUSTOM CHECKBOX ──────────────────────────── */
     input[type="checkbox"] {
       -webkit-appearance: none; appearance: none;
@@ -612,6 +637,17 @@
       </div>
     </section>
 
+    <!-- ── CRONOLOGIA ──────────────────────────────────── -->
+    <section id="history-card" class="card hidden">
+      <div class="card-head">
+        <div class="card-head-l">
+          <span class="card-title" data-i18n="history_title">Cronologia download</span>
+        </div>
+        <button class="lnk lnk-muted" onclick="clearHistory()" data-i18n="history_clear">Cancella tutto</button>
+      </div>
+      <div id="history-list"></div>
+    </section>
+
     <!-- ── STEP 2: ANTEPRIMA ────────────────────────── -->
     <section id="step-preview" class="card hidden">
       <div class="card-head">
@@ -645,6 +681,10 @@
         <button id="btn-download" class="btn btn-primary" onclick="startDownload()">
           <span id="download-btn-text">Scarica selezionati</span>
         </button>
+        <label class="auto-dl-row">
+          <input type="checkbox" id="chk-auto-dl" checked>
+          <span data-i18n="auto_dl_label">Scarica ZIP automaticamente al termine</span>
+        </label>
       </div>
     </section>
 
@@ -727,6 +767,9 @@ const TR = {
     notif_tip:   'Abilita notifiche desktop',
     notif_tip_on:'Notifiche abilitate',
     notif_denied:'Notifiche bloccate dal browser',
+    history_title:'Cronologia download',
+    history_clear:'Cancella tutto',
+    auto_dl_label:'Scarica ZIP automaticamente al termine',
     footer:      'Solo per uso personale · virtuale.unibo.it',
   },
   en: {
@@ -761,6 +804,9 @@ const TR = {
     notif_tip:   'Enable desktop notifications',
     notif_tip_on:'Notifications enabled',
     notif_denied:'Notifications blocked by browser',
+    history_title:'Download history',
+    history_clear:'Clear all',
+    auto_dl_label:'Auto-download ZIP when done',
     footer:      'For personal use only · virtuale.unibo.it',
   },
 };
@@ -790,6 +836,7 @@ function setLang(l) {
   });
   updateDownloadBtn();
   updateNotifBtn();
+  renderHistory();
 }
 
 // ── tema ─────────────────────────────────────────────────────
@@ -990,7 +1037,21 @@ function _reorderCourseData() {
     w.dataset.sectionIndex = i;
     w.querySelectorAll('[data-section]').forEach(el => el.dataset.section = i);
   });
+  _renumberSections(wraps);
   updateDownloadBtn();
+}
+
+// Aggiorna i numeri di ordine nei titoli delle sezioni dopo ogni riordino
+function _renumberSections(wraps) {
+  if (!wraps) wraps = [...document.querySelectorAll('#sections-container .sec-wrap')];
+  wraps.forEach((w, i) => {
+    // Rimuove prefisso numerico esistente ("00 - ", "01 - ", ecc.)
+    const rawTitle = courseData[i].title.replace(/^\d+ - /, '');
+    const newTitle = String(i).padStart(2, '0') + ' - ' + rawTitle;
+    courseData[i].title = newTitle;
+    const titleEl = w.querySelector('.sec-head-title');
+    if (titleEl) titleEl.textContent = newTitle;
+  });
 }
 
 // ── ricerca risorse ───────────────────────────────────────────
@@ -1046,11 +1107,69 @@ function notifyDone(msg) {
   }
 }
 
+// ── auto-download ZIP ─────────────────────────────────────────
+function autoDownloadZip(url) {
+  if (!url || url === '#') return;
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = '';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+// ── cronologia download ───────────────────────────────────────
+const HISTORY_KEY = 'vd-history';
+const HISTORY_MAX = 8;
+
+function _loadHistory() {
+  try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); }
+  catch { return []; }
+}
+
+function saveToHistory(courseName, fileCount, sectionCount) {
+  const h = _loadHistory();
+  h.unshift({ courseName, files: fileCount, sections: sectionCount, date: new Date().toISOString() });
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(h.slice(0, HISTORY_MAX)));
+  renderHistory();
+}
+
+function clearHistory() {
+  localStorage.removeItem(HISTORY_KEY);
+  renderHistory();
+}
+
+function renderHistory() {
+  const h    = _loadHistory();
+  const card = document.getElementById('history-card');
+  if (!card) return;
+  if (!h.length) { card.classList.add('hidden'); return; }
+  card.classList.remove('hidden');
+  const locale = lang === 'it' ? 'it-IT' : 'en-GB';
+  document.getElementById('history-list').innerHTML = h.map(entry => {
+    const d   = new Date(entry.date);
+    const now = new Date();
+    const dateOpts = { day: 'numeric', month: 'short' };
+    if (d.getFullYear() !== now.getFullYear()) dateOpts.year = 'numeric';
+    const dateStr = d.toLocaleDateString(locale, dateOpts)
+                  + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const meta = `${entry.files} file · ${entry.sections} ${t('sections_lbl')}`;
+    return `<div class="history-item">
+      <div class="history-main">
+        <span class="history-name" title="${escHtml(entry.courseName)}">${escHtml(entry.courseName)}</span>
+        <span class="history-meta">${meta}</span>
+      </div>
+      <span class="history-date">${dateStr}</span>
+    </div>`;
+  }).join('');
+}
+
 // ── stato ────────────────────────────────────────────────────
-let currentMoodleSession = '';
-let currentSessionId     = '';
-let currentCourseName    = '';
-let courseData           = null;
+let currentMoodleSession  = '';
+let currentSessionId      = '';
+let currentCourseName     = '';
+let courseData            = null;
+let currentDownloadItems  = [];
 
 // ── dati mock (demo standalone) ──────────────────────────────
 const MOCK_SECTIONS = [
@@ -1349,6 +1468,7 @@ async function startDownload() {
     selected.push({ ...item, section: courseData[si].title });
   });
   if (!selected.length) { alert(t('err_nosel')); return; }
+  currentDownloadItems = selected;
 
   // reset UI
   const logEl = document.getElementById('log');
@@ -1391,9 +1511,16 @@ async function startDownload() {
         es.close();
         document.getElementById('step3-title').textContent = t('step3_done');
         document.getElementById('done-text').textContent = msg.message;
-        document.getElementById('zip-link').href = `/api/zip/${currentSessionId}`;
+        const zipUrl = `/api/zip/${currentSessionId}`;
+        document.getElementById('zip-link').href = zipUrl;
         document.getElementById('zip-section').classList.remove('hidden');
         notifyDone(msg.message);
+        // Salva in cronologia
+        const secCount = new Set(currentDownloadItems.map(i => i.section)).size;
+        saveToHistory(currentCourseName, msg.ok ?? 0, secCount);
+        // Auto-download ZIP
+        const autoChk = document.getElementById('chk-auto-dl');
+        if (!autoChk || autoChk.checked) autoDownloadZip(zipUrl);
       }
       if (msg.type === 'error') {
         es.close();
@@ -1454,6 +1581,9 @@ async function simulateDownload(items) {
   document.getElementById('zip-link').href = '#';
   document.getElementById('zip-section').classList.remove('hidden');
   notifyDone(doneMsg);
+  // Salva in cronologia (demo: URL # non scaricabile)
+  const secCount = new Set(items.map(i => i.section)).size;
+  saveToHistory(currentCourseName || 'Corso Demo', ok, secCount);
 }
 
 function appendLog(text, type) {
@@ -1485,8 +1615,14 @@ function reset() {
 // ── enter key ──────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   applyTheme(document.documentElement.getAttribute('data-theme') === 'dark');
-  setLang(lang);
-  updateNotifBtn();
+  setLang(lang);  // chiama anche updateNotifBtn e renderHistory
+  // Init toggle auto-download
+  const chkAuto = document.getElementById('chk-auto-dl');
+  if (chkAuto) {
+    chkAuto.checked = localStorage.getItem('vd-auto-dl') !== 'false';
+    chkAuto.addEventListener('change', () =>
+      localStorage.setItem('vd-auto-dl', chkAuto.checked));
+  }
   ['moodle-session', 'course-url'].forEach(id => {
     document.getElementById(id).addEventListener('keydown', e => {
       if (e.key === 'Enter') analyze();
