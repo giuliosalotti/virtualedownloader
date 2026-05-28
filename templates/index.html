@@ -1331,6 +1331,10 @@ function _applyComparison() {
   if (!_localFiles || !courseData) return;
   const { files, dirs } = _localFiles;
 
+  // Esclude le cartelle-sezione (formato "NN - Titolo") dal pool dei folder Moodle:
+  // altrimenti "00 - Introduzione" farebbe match falso con una risorsa folder "Introduzione".
+  const subDirs = dirs.filter(d => !/^\d{2} - /.test(d));
+
   // Rimuove stato precedente
   document.querySelectorAll('.compare-badge').forEach(b => b.remove());
   document.querySelectorAll('.resource-row.is-present').forEach(r => r.classList.remove('is-present'));
@@ -1341,11 +1345,20 @@ function _applyComparison() {
     const si   = parseInt(cb.dataset.section);
     const ii   = parseInt(cb.dataset.item);
     const item = courseData?.[si]?.items?.[ii];
-    if (!item || item.type === 'url' || item.type === 'forum' || item.type === 'other') return;
+    if (!item || item.type === 'forum' || item.type === 'other') return;
 
-    const row   = cb.parentElement;
-    const pool  = item.type === 'folder' ? dirs : files;
-    const found = pool.some(n => _isSimilar(item.name, n));
+    const row = cb.parentElement;
+    let found = false;
+
+    if (item.type === 'file') {
+      found = files.some(n => _isSimilar(item.name, n));
+    } else if (item.type === 'folder') {
+      // Confronta solo contro sotto-cartelle (non cartelle-sezione)
+      found = subDirs.some(n => _isSimilar(item.name, n));
+    } else if (item.type === 'url') {
+      // I link vengono salvati come "NomeSanitizzato.url" — confronta solo i .url
+      found = files.some(n => /\.url$/i.test(n) && _isSimilar(item.name, n.replace(/\.url$/i, '')));
+    }
 
     if (found) {
       row.classList.add('is-present');
@@ -1378,7 +1391,9 @@ function selectOnlyNew() {
     const si   = parseInt(cb.dataset.section);
     const ii   = parseInt(cb.dataset.item);
     const item = courseData?.[si]?.items?.[ii];
-    if (!item || item.type === 'forum') { cb.checked = false; return; }
+    // forum e other non sono scaricabili → sempre deselezionati
+    if (!item || item.type === 'forum' || item.type === 'other') { cb.checked = false; return; }
+    // file, folder e url: seleziona solo quelli non già presenti
     cb.checked = !cb.parentElement.classList.contains('is-present');
   });
   const siSet = new Set([...document.querySelectorAll('.item-checkbox')].map(c => c.dataset.section));
