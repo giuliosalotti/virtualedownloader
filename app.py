@@ -6,8 +6,10 @@ Flask backend: analizza il corso, scarica le risorse selezionate, restituisce un
 
 import io
 import json
+import os
 import queue
 import re
+import sys
 import tempfile
 import threading
 import time
@@ -20,7 +22,15 @@ import requests
 from bs4 import BeautifulSoup
 from flask import Flask, Response, jsonify, render_template, request, send_file
 
-app = Flask(__name__)
+
+def _resource_path(relative_path: str) -> str:
+    """Risolve il percorso sia in sviluppo che dentro il bundle PyInstaller (.app)."""
+    if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+        return os.path.join(sys._MEIPASS, relative_path)
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), relative_path)
+
+
+app = Flask(__name__, template_folder=_resource_path('templates'))
 
 # ── costanti ────────────────────────────────────────────────────
 
@@ -370,6 +380,5 @@ def get_zip(sid):
 
 
 if __name__ == "__main__":
-    import os
     port = int(os.environ.get("PORT", 5001))
     app.run(debug=True, host="0.0.0.0", port=port)
