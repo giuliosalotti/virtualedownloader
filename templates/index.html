@@ -306,14 +306,22 @@
     .resource-icon-wrap {
       width: 22px; height: 22px;
       border-radius: 5px;
+      background: rgba(0,0,0,0.04);
       display: flex; align-items: center; justify-content: center;
       flex-shrink: 0;
       overflow: hidden;
+    }
+    [data-theme="dark"] .resource-icon-wrap {
+      background: rgba(255,255,255,0.10);
     }
     .resource-icon {
       width: 20px; height: 20px;
       object-fit: contain;
       border-radius: 3px;
+    }
+    /* Rendi visibili le icone PNG di Moodle (scure su trasparente) in dark mode */
+    [data-theme="dark"] .resource-icon {
+      filter: invert(1) brightness(0.88);
     }
     .resource-icon-fb { font-size: 14px; line-height: 1; }
 
@@ -735,11 +743,12 @@ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e =
 
 // ── icone & anteprima ────────────────────────────────────────
 const TYPE_META = {
-  file:   { emoji: '📄', bg: 'rgba(0,122,255,0.09)',    color: '#0070D9' },
-  folder: { emoji: '📁', bg: 'rgba(255,159,10,0.11)',   color: '#A85200' },
-  url:    { emoji: '🔗', bg: 'rgba(88,86,214,0.11)',    color: '#5856D6' },
-  forum:  { emoji: '💬', bg: 'rgba(52,199,89,0.10)',    color: '#28A84A' },
-  other:  { emoji: '📎', bg: 'rgba(142,142,147,0.09)',  color: '#8E8E93' },
+  //               light bg                   dark bg                     light color   dark color
+  file:   { emoji:'📄', bg:'rgba(0,122,255,0.09)',   bgDark:'rgba(10,132,255,0.28)',  color:'#0070D9', colorDark:'#409CFF' },
+  folder: { emoji:'📁', bg:'rgba(255,159,10,0.11)',  bgDark:'rgba(255,159,10,0.28)',  color:'#A85200', colorDark:'#FFB340' },
+  url:    { emoji:'🔗', bg:'rgba(88,86,214,0.11)',   bgDark:'rgba(94,92,230,0.28)',   color:'#5856D6', colorDark:'#7D7AFF' },
+  forum:  { emoji:'💬', bg:'rgba(52,199,89,0.10)',   bgDark:'rgba(48,209,88,0.26)',   color:'#28A84A', colorDark:'#30D158' },
+  other:  { emoji:'📎', bg:'rgba(142,142,147,0.09)', bgDark:'rgba(142,142,147,0.22)', color:'#8E8E93', colorDark:'#AEAEB2' },
 };
 
 function escHtml(s) {
@@ -773,13 +782,18 @@ function buildIconEl(item) {
 }
 
 function showPreview(e, item, sectionTitle) {
-  const card = document.getElementById('preview-card');
-  const meta = TYPE_META[item.type] || TYPE_META.other;
-  const bc   = badgeClass(item.type);
+  const card  = document.getElementById('preview-card');
+  const meta  = TYPE_META[item.type] || TYPE_META.other;
+  const dark  = document.documentElement.getAttribute('data-theme') === 'dark';
+  const bg    = dark ? meta.bgDark    : meta.bg;
+  const bc    = badgeClass(item.type);
+
+  // Per le icone PNG Moodle in dark mode applichiamo invert come nel row icon
+  const imgStyle = dark ? 'style="filter:invert(1) brightness(0.88)"' : '';
 
   let iconInner;
   if (item.icon) {
-    iconInner = `<img src="${escHtml(item.icon)}" class="pc-icon-img" alt=""
+    iconInner = `<img src="${escHtml(item.icon)}" class="pc-icon-img" ${imgStyle} alt=""
       onerror="this.outerHTML='<span style=\\'font-size:21px\\'>${meta.emoji}</span>'">`;
   } else {
     iconInner = `<span style="font-size:21px">${meta.emoji}</span>`;
@@ -787,7 +801,7 @@ function showPreview(e, item, sectionTitle) {
 
   card.innerHTML = `
     <div class="pc-body">
-      <div class="pc-icon-wrap" style="background:${meta.bg}">
+      <div class="pc-icon-wrap" style="background:${bg}">
         ${iconInner}
       </div>
       <div class="pc-info">
