@@ -277,10 +277,11 @@
     .sec-items.collapsed { display: none; }
 
     .resource-row {
-      display: flex; align-items: center; gap: 12px;
-      padding: 8px 20px 8px 50px;
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 20px;
       cursor: pointer;
       transition: background .1s;
+      position: relative;
     }
     .resource-row:hover { background: rgba(0,0,0,0.018); }
 
@@ -300,6 +301,68 @@
     .b-url    { background: rgba(88,86,214,0.10);  color: #5856D6; }
     .b-forum  { background: var(--bg); color: var(--text-3); }
     .b-other  { background: var(--bg); color: var(--text-3); }
+
+    /* ── RESOURCE ICON ───────────────────────────────── */
+    .resource-icon-wrap {
+      width: 22px; height: 22px;
+      border-radius: 5px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      overflow: hidden;
+    }
+    .resource-icon {
+      width: 20px; height: 20px;
+      object-fit: contain;
+      border-radius: 3px;
+    }
+    .resource-icon-fb { font-size: 14px; line-height: 1; }
+
+    /* ── PREVIEW CARD ─────────────────────────────────── */
+    .preview-card {
+      position: fixed;
+      z-index: 999;
+      background: var(--card);
+      border-radius: var(--r);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.13), 0 2px 8px rgba(0,0,0,0.07),
+                  0 0 0 1px rgba(0,0,0,0.05);
+      padding: 13px 15px;
+      pointer-events: none;
+      opacity: 0;
+      transform: scale(0.96) translateY(4px);
+      transition: opacity .14s, transform .14s;
+      max-width: 270px;
+      min-width: 190px;
+    }
+    .preview-card.visible {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
+    [data-theme="dark"] .preview-card {
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5), 0 2px 8px rgba(0,0,0,0.3),
+                  0 0 0 1px rgba(255,255,255,0.07);
+    }
+    .pc-body { display: flex; align-items: flex-start; gap: 12px; }
+    .pc-icon-wrap {
+      width: 40px; height: 40px;
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      font-size: 21px;
+    }
+    .pc-icon-img { width: 26px; height: 26px; object-fit: contain; }
+    .pc-info { flex: 1; min-width: 0; }
+    .pc-name {
+      font-size: 13px; font-weight: 600;
+      color: var(--text-1); line-height: 1.4;
+      word-break: break-word;
+      margin-bottom: 6px;
+    }
+    .pc-row2 { display: flex; align-items: center; gap: 6px; }
+    .pc-section {
+      font-size: 11px; color: var(--text-3);
+      margin-top: 5px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
 
     /* ── CUSTOM CHECKBOX ──────────────────────────── */
     input[type="checkbox"] {
@@ -556,6 +619,9 @@
 
   <footer data-i18n="footer">Solo per uso personale · virtuale.unibo.it</footer>
 
+  <!-- Floating preview card (populated by JS on hover) -->
+  <div id="preview-card" class="preview-card" aria-hidden="true"></div>
+
 <script>
 // ── i18n ─────────────────────────────────────────────────────
 const TR = {
@@ -667,6 +733,99 @@ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e =
   if (!localStorage.getItem('vd-theme')) applyTheme(e.matches);
 });
 
+// ── icone & anteprima ────────────────────────────────────────
+const TYPE_META = {
+  file:   { emoji: '📄', bg: 'rgba(0,122,255,0.09)',    color: '#0070D9' },
+  folder: { emoji: '📁', bg: 'rgba(255,159,10,0.11)',   color: '#A85200' },
+  url:    { emoji: '🔗', bg: 'rgba(88,86,214,0.11)',    color: '#5856D6' },
+  forum:  { emoji: '💬', bg: 'rgba(52,199,89,0.10)',    color: '#28A84A' },
+  other:  { emoji: '📎', bg: 'rgba(142,142,147,0.09)',  color: '#8E8E93' },
+};
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function buildIconEl(item) {
+  const meta = TYPE_META[item.type] || TYPE_META.other;
+  const wrap = document.createElement('span');
+  wrap.className = 'resource-icon-wrap';
+  if (item.icon) {
+    const img = document.createElement('img');
+    img.src = item.icon;
+    img.className = 'resource-icon';
+    img.alt = '';
+    img.addEventListener('error', () => {
+      img.remove();
+      const fb = document.createElement('span');
+      fb.className = 'resource-icon-fb';
+      fb.textContent = meta.emoji;
+      wrap.appendChild(fb);
+    });
+    wrap.appendChild(img);
+  } else {
+    const fb = document.createElement('span');
+    fb.className = 'resource-icon-fb';
+    fb.textContent = meta.emoji;
+    wrap.appendChild(fb);
+  }
+  return wrap;
+}
+
+function showPreview(e, item, sectionTitle) {
+  const card = document.getElementById('preview-card');
+  const meta = TYPE_META[item.type] || TYPE_META.other;
+  const bc   = badgeClass(item.type);
+
+  let iconInner;
+  if (item.icon) {
+    iconInner = `<img src="${escHtml(item.icon)}" class="pc-icon-img" alt=""
+      onerror="this.outerHTML='<span style=\\'font-size:21px\\'>${meta.emoji}</span>'">`;
+  } else {
+    iconInner = `<span style="font-size:21px">${meta.emoji}</span>`;
+  }
+
+  card.innerHTML = `
+    <div class="pc-body">
+      <div class="pc-icon-wrap" style="background:${meta.bg}">
+        ${iconInner}
+      </div>
+      <div class="pc-info">
+        <div class="pc-name">${escHtml(item.name)}</div>
+        <div class="pc-row2">
+          <span class="badge ${bc}" style="font-size:10px;padding:1.5px 6px">${item.type}</span>
+        </div>
+        <div class="pc-section">${escHtml(sectionTitle)}</div>
+      </div>
+    </div>`;
+
+  positionPreview(e);
+  card.classList.add('visible');
+}
+
+function positionPreview(e) {
+  const card   = document.getElementById('preview-card');
+  const cw     = card.offsetWidth  || 260;
+  const ch     = card.offsetHeight || 90;
+  const vw     = window.innerWidth;
+  const vh     = window.innerHeight;
+  const margin = 14;
+
+  let x = e.clientX + 16;
+  let y = e.clientY - 12;
+
+  if (x + cw > vw - margin) x = e.clientX - cw - 16;
+  if (y + ch > vh - margin) y = vh - ch - margin;
+  if (y < margin) y = margin;
+
+  card.style.left = x + 'px';
+  card.style.top  = y + 'px';
+}
+
+function hidePreview() {
+  document.getElementById('preview-card').classList.remove('visible');
+}
+
 // ── stato ────────────────────────────────────────────────────
 let currentMoodleSession = '';
 let currentSessionId     = '';
@@ -676,28 +835,28 @@ let courseData           = null;
 // ── dati mock (demo standalone) ──────────────────────────────
 const MOCK_SECTIONS = [
   { title: "00 - Introduzione al corso", items: [
-    { name: "Presentazione del corso", url: "#", type: "file" },
-    { name: "Calendario delle lezioni", url: "#", type: "file" },
-    { name: "Programma e modalità d'esame", url: "#", type: "file" },
+    { name: "Presentazione del corso",    url: "#", type: "file",   icon: "" },
+    { name: "Calendario delle lezioni",   url: "#", type: "file",   icon: "" },
+    { name: "Programma e modalità d'esame", url: "#", type: "file", icon: "" },
   ]},
   { title: "01 - Fondamenti teorici", items: [
-    { name: "Lezione 1 — Introduzione", url: "#", type: "file" },
-    { name: "Lezione 2 — Concetti base", url: "#", type: "file" },
-    { name: "Lezione 3 — Approfondimento", url: "#", type: "file" },
-    { name: "Materiale di supporto", url: "#", type: "folder" },
-    { name: "Libro di testo (Springer)", url: "#", type: "url" },
+    { name: "Lezione 1 — Introduzione",   url: "#", type: "file",   icon: "" },
+    { name: "Lezione 2 — Concetti base",  url: "#", type: "file",   icon: "" },
+    { name: "Lezione 3 — Approfondimento",url: "#", type: "file",   icon: "" },
+    { name: "Materiale di supporto",      url: "#", type: "folder", icon: "" },
+    { name: "Libro di testo (Springer)",  url: "#", type: "url",    icon: "" },
   ]},
   { title: "02 - Esercitazioni pratiche", items: [
-    { name: "Esercizi — Sessione 1", url: "#", type: "file" },
-    { name: "Esercizi — Sessione 2", url: "#", type: "file" },
-    { name: "Soluzioni commentate", url: "#", type: "folder" },
-    { name: "Forum di discussione", url: "#", type: "forum" },
+    { name: "Esercizi — Sessione 1",      url: "#", type: "file",   icon: "" },
+    { name: "Esercizi — Sessione 2",      url: "#", type: "file",   icon: "" },
+    { name: "Soluzioni commentate",       url: "#", type: "folder", icon: "" },
+    { name: "Forum di discussione",       url: "#", type: "forum",  icon: "" },
   ]},
   { title: "03 - Prove d'esame", items: [
-    { name: "Prova 2023 — Giugno", url: "#", type: "file" },
-    { name: "Prova 2023 — Settembre", url: "#", type: "file" },
-    { name: "Prova 2024 — Gennaio", url: "#", type: "file" },
-    { name: "Prova 2024 — Giugno", url: "#", type: "file" },
+    { name: "Prova 2023 — Giugno",        url: "#", type: "file",   icon: "" },
+    { name: "Prova 2023 — Settembre",     url: "#", type: "file",   icon: "" },
+    { name: "Prova 2024 — Gennaio",       url: "#", type: "file",   icon: "" },
+    { name: "Prova 2024 — Giugno",        url: "#", type: "file",   icon: "" },
   ]},
 ];
 
@@ -858,6 +1017,8 @@ function renderPreview(sections) {
       itemCb.dataset.item = ii;
       itemCb.className = 'item-checkbox';
 
+      const iconEl = buildIconEl(item);
+
       const name = document.createElement('span');
       name.className = 'resource-name';
       name.textContent = item.name;
@@ -867,8 +1028,14 @@ function renderPreview(sections) {
       badge.className = `badge ${badgeClass(item.type)}`;
       badge.textContent = item.type;
 
-      row.append(itemCb, name, badge);
+      row.append(itemCb, iconEl, name, badge);
       itemCb.addEventListener('change', () => syncSectionCb(si));
+
+      // ── hover preview ──
+      row.addEventListener('mouseenter', e => showPreview(e, item, section.title));
+      row.addEventListener('mousemove',  positionPreview);
+      row.addEventListener('mouseleave', hidePreview);
+
       list.appendChild(row);
     });
 

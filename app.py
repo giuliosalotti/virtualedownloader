@@ -130,7 +130,17 @@ def parse_course(moodle_session: str, course_url: str) -> dict:
                 if name.endswith(suffix):
                     name = name[: -len(suffix)].strip()
 
-            items.append({"name": name, "url": a["href"], "type": kind})
+            # Icona dell'activity (Moodle la mette in <img class="activityicon">)
+            img = activity.find(
+                "img",
+                class_=lambda c: c and "activityicon" in c.split() if c else False,
+            ) or activity.find(
+                "img",
+                src=lambda s: s and ("/theme/" in s or "/pluginfile/" in s) if s else False,
+            )
+            icon_url = img.get("src", "") if img else ""
+
+            items.append({"name": name, "url": a["href"], "type": kind, "icon": icon_url})
 
         result.append({"title": title, "items": items})
 
